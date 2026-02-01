@@ -18,10 +18,10 @@ defmodule Deploy.Reactors.Steps.GitFetch do
     Logger.info("Fetching latest #{branch} branch")
 
     # Fetch the specific branch
-    case System.cmd("git", ["fetch", "origin", branch], cd: workspace, stderr_to_stdout: true) do
+    case Deploy.Git.cmd(["fetch", "origin", branch], cd: workspace, stderr_to_stdout: true) do
       {_output, 0} ->
         # Reset to the fetched branch to ensure we're at the latest
-        case System.cmd("git", ["reset", "--hard", "origin/#{branch}"], cd: workspace, stderr_to_stdout: true) do
+        case Deploy.Git.cmd(["reset", "--hard", "origin/#{branch}"], cd: workspace, stderr_to_stdout: true) do
           {_output, 0} ->
             {:ok, branch}
 

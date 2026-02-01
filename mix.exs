@@ -34,6 +34,8 @@ defmodule Deploy.MixProject do
       # For Slack webhooks
       {:httpoison, "~> 2.0"},
 
+      {:plug, "~> 1.0", only: :test},
+
       # For development/testing
       # {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
       {:mox, "~> 1.0", only: :test},

@@ -28,7 +28,7 @@ defmodule Deploy.Reactors.Steps.CloneRepo do
     # Remove --depth 1 if you need to do operations that require history
     args = ["clone", "--depth", "1", "--branch", "staging", authenticated_url, "."]
 
-    case System.cmd("git", args, cd: workspace, stderr_to_stdout: true) do
+    case Deploy.Git.cmd(args, cd: workspace, stderr_to_stdout: true) do
       {_output, 0} ->
         # Configure git user for commits we'll make later
         configure_git_user(workspace)
@@ -56,7 +56,7 @@ defmodule Deploy.Reactors.Steps.CloneRepo do
 
   defp configure_git_user(workspace) do
     # Use a bot identity for deployment commits
-    System.cmd("git", ["config", "user.name", "Deploy Bot"], cd: workspace)
-    System.cmd("git", ["config", "user.email", "deploy-bot@example.com"], cd: workspace)
+    Deploy.Git.cmd(["config", "user.name", "Deploy Bot"], cd: workspace)
+    Deploy.Git.cmd(["config", "user.email", "deploy-bot@example.com"], cd: workspace)
   end
 end

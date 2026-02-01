@@ -44,37 +44,41 @@ An Elixir application using Reactor to orchestrate these steps as a saga, with:
 
 2. **GitHub REST API over CLI**: We use the GitHub REST API directly (via `Req`) rather than the `gh` CLI. This gives us structured error handling, cleaner authentication, and easier testing.
 
-3. **Git CLI via System.cmd**: For actual git operations (clone, checkout, commit, push), we shell out to git. It's battle-tested and handles edge cases well.
+3. **Git CLI via `Deploy.Git` behaviour**: For actual git operations (clone, checkout, commit, push), we shell out to git through a behaviour module. The `Deploy.Git` behaviour defines a `cmd/2` callback, with `Deploy.Git.System` as the default implementation wrapping `System.cmd("git", ...)`. The active implementation is configured via `Application.get_env(:deploy, :git_module, Deploy.Git.System)`, which allows tests to swap in a Mox mock.
 
-4. **Dependency injection for testing**: Each Reactor step accepts its dependencies (git, file system) via options, defaulting to real implementations. Tests inject Mox mocks.
+4. **Mox for git mocking in tests**: Tests define `Deploy.Git.Mock` via Mox and set it as the `:git_module` in application config. Step tests use `expect/3` for precise call assertions; integration tests use `stub/3` when compensation ordering is non-deterministic.
 
-5. **Behaviours for mockable modules**: `Deploy.Git`, `Deploy.FileSystem`, and `Deploy.HTTP` define behaviours that Mox can mock.
+5. **Req plug adapter for GitHub API tests**: GitHub client tests use `Req.new(plug: fn)` to intercept HTTP calls at the Plug level, avoiding real network requests.
 
 ### Project Structure
 
 ```
-deploy_tool/
+deploy/
 ├── mix.exs
+├── docs/
+│   └── deploy-tool-handoff.md
 ├── test/
-│   ├── test_helper.exs
-│   └── deploy/
-│       ├── github_test.exs
-│       └── reactors/steps/
+│   ├── test_helper.exs              # Mox mock setup
+│   ├── config_test.exs              # Deploy.Config tests
+│   ├── github_test.exs              # Deploy.GitHub tests (Req plug adapter)
+│   └── reactors/
+│       ├── setup_test.exs           # Full reactor integration test
+│       └── steps/
 │           ├── create_workspace_test.exs
 │           ├── clone_repo_test.exs
 │           ├── git_fetch_test.exs
 │           ├── create_deploy_branch_test.exs
 │           └── git_push_test.exs
-└── lib/deploy/
-    ├── application.ex
-    ├── config.ex
-    ├── runner.ex
-    ├── git.ex                 # Git CLI wrapper + behaviour
-    ├── file_system.ex         # File operations wrapper + behaviour
-    ├── http.ex                # HTTP wrapper + behaviour
-    ├── github.ex              # GitHub API client
+└── lib/
+    ├── deploy.ex
+    ├── config.ex                    # Environment variable config
+    ├── runner.ex                    # High-level interface
+    ├── github.ex                    # GitHub API client
+    ├── git.ex                       # Git behaviour + delegation
+    ├── git/
+    │   └── system.ex                # Default git implementation
     └── reactors/
-        ├── setup.ex           # Setup phase reactor
+        ├── setup.ex                 # Setup phase reactor
         └── steps/
             ├── create_workspace.ex
             ├── clone_repo.ex
@@ -119,7 +123,7 @@ The `Deploy.Reactors.Setup` reactor handles:
 
 All steps have compensation logic and are fully tested.
 
-### GitHub API Client (Partial)
+### GitHub API Client (Complete)
 
 `Deploy.GitHub` has functions for:
 - `change_pr_base/5` - Retarget a PR to a new base branch
@@ -134,13 +138,31 @@ All steps have compensation logic and are fully tested.
 - `update_release/5` - Update release description
 - `get_release_by_tag/4` - Get a release by tag name
 
-Tests use Req's adapter pattern for HTTP mocking.
+All functions are tested using Req's plug adapter for HTTP mocking.
 
-### Wrapper Modules (Complete)
+### Git Behaviour (Complete)
 
-- `Deploy.Git` - Wraps `System.cmd("git", ...)` for mockability
-- `Deploy.FileSystem` - Wraps `File` operations for mockability
-- `Deploy.HTTP` - Wraps `Req` operations for mockability
+- `Deploy.Git` - Behaviour defining `cmd/2` callback, with delegation to configurable implementation
+- `Deploy.Git.System` - Default implementation wrapping `System.cmd("git", ...)`
+- All reactor steps use `Deploy.Git.cmd/2` instead of calling `System.cmd` directly
+
+### Configuration (Complete)
+
+`Deploy.Config` reads from environment variables:
+- `DEPLOY_REPO_URL` - Repository URL (required)
+- `GITHUB_TOKEN` - GitHub token (required)
+- `SLACK_WEBHOOK_URL` - Slack webhook (optional)
+- Derived: `github_owner/0`, `github_repo/0` parsed from repo URL
+- `deploy_date/0` - Today's date as `YYYYMMDD`
+
+### Test Suite (Complete)
+
+47 tests covering:
+- **Config tests** (7): env var reading, URL parsing, deploy_date format
+- **GitHub tests** (18): all API functions with success/error paths, CI status logic, PR approval logic
+- **Step tests** (14): each step's run + compensate with Mox expectations
+- **Integration tests** (2): full reactor happy path + compensation on failure
+- **Workspace tests** (3): real filesystem operations for temp dir creation/cleanup
 
 ---
 
@@ -239,6 +261,9 @@ mix deps.get
 # Run tests
 mix test
 
+# Run tests with coverage
+mix test --cover
+
 # Run setup phase (requires env vars)
 export DEPLOY_REPO_URL="https://github.com/yourorg/yourrepo.git"
 export GITHUB_TOKEN="ghp_xxxx"
@@ -247,28 +272,42 @@ mix deploy
 
 ### Key Dependencies
 
-- `reactor` (~> 0.10) - Saga orchestrator from Ash
+- `reactor` (~> 1.0) - Saga orchestrator from Ash
 - `req` (~> 0.5) - HTTP client
 - `jason` (~> 1.4) - JSON parsing
+- `httpoison` (~> 2.0) - For Slack webhooks
 - `mox` (~> 1.0, test only) - Mocking
+- `plug` (~> 1.0, test only) - Required by Req's plug adapter for tests
 
 ### Testing Patterns
 
-**Step tests** use Mox:
+**Step tests** use Mox via the `Deploy.Git` behaviour:
 ```elixir
-Deploy.GitMock
-|> expect(:cmd, fn args, opts -> {"output", 0} end)
+Deploy.Git.Mock
+|> expect(:cmd, fn ["clone" | _], _opts -> {"", 0} end)
 
-StepModule.run(arguments, %{}, git: Deploy.GitMock)
+Deploy.Reactors.Steps.CloneRepo.run(arguments, %{}, [])
 ```
 
-**GitHub client tests** use Req's adapter:
+**GitHub client tests** use Req's plug adapter:
 ```elixir
-client = Req.new(
-  adapter: fn request ->
-    {request, Req.Response.new(status: 200, body: %{...})}
+client = Req.new(plug: fn conn ->
+  Req.Test.json(conn, %{"number" => 1})
+end)
+
+Deploy.GitHub.change_pr_base(client, "owner", "repo", 1, "branch")
+```
+
+**Integration tests** use `stub/3` for non-deterministic compensation ordering:
+```elixir
+Mox.stub(Deploy.Git.Mock, :cmd, fn args, _opts ->
+  case args do
+    ["push", "-u" | _] -> {"rejected", 1}
+    _ -> {"", 0}
   end
-)
+end)
+
+Reactor.run(Deploy.Reactors.Setup, inputs)
 ```
 
 ### Compensation Best Practices
@@ -309,22 +348,23 @@ client = Req.new(
 
 1. **Complete Phase 2 (PR Manipulation)** - This is the next logical piece and will validate the architecture for multi-PR operations.
 
-2. **Add integration tests** - Test against a real (test) repository to verify git operations work end-to-end.
+2. **Implement Slack module** - Simple webhook POST, will be needed for phase 5.
 
-3. **Implement Slack module** - Simple webhook POST, will be needed for phases 5.
+3. **Add version bumping logic** - Once we know which files to modify.
 
-4. **Add version bumping logic** - Once we know which files to modify.
-
-5. **Build the full orchestrator** - A top-level reactor that composes all phases.
+4. **Build the full orchestrator** - A top-level reactor that composes all phases.
 
 ---
 
 ## File Reference
 
-All implementation files are in the `deploy_tool/` directory. Key files to review:
+Key files to review:
 
-- `lib/deploy/reactors/setup.ex` - Example reactor structure
-- `lib/deploy/reactors/steps/create_workspace.ex` - Example step with compensation
-- `lib/deploy/github.ex` - GitHub API patterns
-- `test/deploy/reactors/steps/clone_repo_test.exs` - Example Mox test
-- `test/deploy/github_test.exs` - Example Req adapter test
+- `lib/reactors/setup.ex` - Reactor structure
+- `lib/reactors/steps/create_workspace.ex` - Step with compensation
+- `lib/github.ex` - GitHub API patterns
+- `lib/git.ex` - Behaviour + delegation pattern
+- `test/reactors/setup_test.exs` - Integration test with Mox stubs
+- `test/reactors/steps/clone_repo_test.exs` - Step test with Mox expects
+- `test/github_test.exs` - Req plug adapter test
+- `test/config_test.exs` - Config unit tests

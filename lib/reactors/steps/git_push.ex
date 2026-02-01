@@ -17,7 +17,7 @@ defmodule Deploy.Reactors.Steps.GitPush do
 
     Logger.info("Pushing branch #{branch} to origin")
 
-    case System.cmd("git", ["push", "-u", "origin", branch], cd: workspace, stderr_to_stdout: true) do
+    case Deploy.Git.cmd(["push", "-u", "origin", branch], cd: workspace, stderr_to_stdout: true) do
       {_output, 0} ->
         {:ok, branch}
 
@@ -33,7 +33,7 @@ defmodule Deploy.Reactors.Steps.GitPush do
     Logger.info("Compensating: deleting remote branch #{branch}")
 
     # Delete the remote branch
-    case System.cmd("git", ["push", "origin", "--delete", branch], cd: workspace, stderr_to_stdout: true) do
+    case Deploy.Git.cmd(["push", "origin", "--delete", branch], cd: workspace, stderr_to_stdout: true) do
       {_output, 0} ->
         :ok
 

@@ -23,9 +23,9 @@ defmodule Deploy.Reactors.Steps.CreateDeployBranch do
     Logger.info("Creating deploy branch: #{branch_name} from #{base_branch}")
 
     # First, ensure we're on the base branch
-    with {_, 0} <- System.cmd("git", ["checkout", base_branch], cd: workspace, stderr_to_stdout: true),
+    with {_, 0} <- Deploy.Git.cmd(["checkout", base_branch], cd: workspace, stderr_to_stdout: true),
          # Create and checkout the new deploy branch
-         {_, 0} <- System.cmd("git", ["checkout", "-b", branch_name], cd: workspace, stderr_to_stdout: true) do
+         {_, 0} <- Deploy.Git.cmd(["checkout", "-b", branch_name], cd: workspace, stderr_to_stdout: true) do
       {:ok, branch_name}
     else
       {output, exit_code} ->
@@ -38,8 +38,8 @@ defmodule Deploy.Reactors.Steps.CreateDeployBranch do
     workspace = arguments.workspace
 
     # Switch back to staging and delete the deploy branch locally
-    System.cmd("git", ["checkout", "staging"], cd: workspace, stderr_to_stdout: true)
-    System.cmd("git", ["branch", "-D", branch_name], cd: workspace, stderr_to_stdout: true)
+    Deploy.Git.cmd(["checkout", "staging"], cd: workspace, stderr_to_stdout: true)
+    Deploy.Git.cmd(["branch", "-D", branch_name], cd: workspace, stderr_to_stdout: true)
 
     :ok
   end
