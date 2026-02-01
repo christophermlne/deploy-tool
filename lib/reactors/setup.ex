@@ -49,5 +49,10 @@ defmodule Deploy.Reactors.Setup do
     wait_for :create_deploy_branch
   end
 
-  return :push_deploy_branch
+  step :setup_result, Deploy.Reactors.Steps.ReturnMap do
+    argument :branch, result(:push_deploy_branch)
+    argument :workspace, result(:create_workspace)
+  end
+
+  return :setup_result
 end

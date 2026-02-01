@@ -31,7 +31,8 @@ defmodule Deploy.Reactors.SetupTest do
         deploy_date: "20260201"
       }
 
-      assert {:ok, "deploy-20260201"} = Reactor.run(Deploy.Reactors.Setup, inputs)
+      assert {:ok, %{branch: "deploy-20260201", workspace: workspace}} = Reactor.run(Deploy.Reactors.Setup, inputs)
+      assert is_binary(workspace)
     end
   end
 

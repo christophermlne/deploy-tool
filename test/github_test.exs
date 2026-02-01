@@ -24,6 +24,25 @@ defmodule Deploy.GitHubTest do
     end
   end
 
+  describe "update_branch/4" do
+    test "returns ok on 202" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(202) |> Req.Test.json(%{"message" => "Updating"})
+      end)
+
+      assert {:ok, _} = Deploy.GitHub.update_branch(client, "o", "r", 1)
+    end
+
+    test "returns error on non-202" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(422) |> Req.Test.json(%{"message" => "nope"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.update_branch(client, "o", "r", 1)
+      assert msg =~ "422"
+    end
+  end
+
   describe "merge_pr/5" do
     test "returns ok on 200" do
       client = stub_client(fn conn ->
@@ -157,6 +176,55 @@ defmodule Deploy.GitHubTest do
       end)
 
       assert {:ok, true} = Deploy.GitHub.pr_approved?(client, "o", "r", 1)
+    end
+  end
+
+  describe "list_prs/4" do
+    test "returns ok with list of PRs" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, [%{"number" => 1, "title" => "PR 1"}, %{"number" => 2, "title" => "PR 2"}])
+      end)
+
+      assert {:ok, [%{"number" => 1}, %{"number" => 2}]} = Deploy.GitHub.list_prs(client, "o", "r")
+    end
+
+    test "passes base and state params" do
+      client = stub_client(fn conn ->
+        query = URI.decode_query(conn.query_string)
+        assert query["base"] == "staging"
+        assert query["state"] == "open"
+        Req.Test.json(conn, [])
+      end)
+
+      assert {:ok, []} = Deploy.GitHub.list_prs(client, "o", "r", base: "staging", state: "open")
+    end
+
+    test "returns error on non-200" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(500) |> Req.Test.json(%{"message" => "error"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.list_prs(client, "o", "r")
+      assert msg =~ "500"
+    end
+  end
+
+  describe "get_pr/4" do
+    test "returns ok on 200" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, %{"number" => 42, "title" => "My PR"})
+      end)
+
+      assert {:ok, %{"number" => 42}} = Deploy.GitHub.get_pr(client, "o", "r", 42)
+    end
+
+    test "returns error on non-200" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"message" => "not found"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.get_pr(client, "o", "r", 99)
+      assert msg =~ "404"
     end
   end
 

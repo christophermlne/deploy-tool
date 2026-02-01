@@ -48,6 +48,30 @@ defmodule Deploy.GitHub do
   end
 
   @doc """
+  Updates a pull request branch with the latest from its base branch.
+
+  This is needed before merging when the base branch has changed
+  (e.g., a previous PR was just merged into it).
+  """
+  def update_branch(client, owner, repo, pr_number) do
+    Logger.info("Updating branch for PR ##{pr_number}")
+
+    case Req.put(client,
+           url: "/repos/#{owner}/#{repo}/pulls/#{pr_number}/update-branch",
+           json: %{}
+         ) do
+      {:ok, %{status: 202, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to update branch (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
   Merges a pull request.
   """
   def merge_pr(client, owner, repo, pr_number, opts \\ []) do
@@ -231,6 +255,49 @@ defmodule Deploy.GitHub do
 
       {:ok, %{status: status, body: resp}} ->
         {:error, "Failed to update release (#{status}): #{inspect(resp)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Lists pull requests for a repository.
+
+  Options:
+    - `base` — filter by base branch
+    - `state` — PR state, default "open"
+  """
+  def list_prs(client, owner, repo, opts \\ []) do
+    base = Keyword.get(opts, :base)
+    state = Keyword.get(opts, :state, "open")
+
+    params =
+      %{state: state}
+      |> maybe_add(:base, base)
+
+    case Req.get(client, url: "/repos/#{owner}/#{repo}/pulls", params: params) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to list PRs (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Gets a single pull request by number.
+  """
+  def get_pr(client, owner, repo, pr_number) do
+    case Req.get(client, url: "/repos/#{owner}/#{repo}/pulls/#{pr_number}") do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to get PR (#{status}): #{inspect(body)}"}
 
       {:error, reason} ->
         {:error, "Request failed: #{inspect(reason)}"}
