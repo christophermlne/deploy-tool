@@ -21,41 +21,59 @@ This batching approach lets us:
 - Create a single deploy PR that references all included work
 - Roll back the entire batch if needed (before merging)
 
-## Inputs
+## Implementation Decisions
 
-The Phase 2 reactor should receive:
+### Client passed as input, not built internally
+
+The doc originally showed steps receiving `github_token` and building their own client. Instead, the reactor accepts a pre-built `Req` client as an input. This makes testing straightforward — tests pass `Req.new(plug: fn)` stub clients, matching the pattern used throughout the existing test suite. `Deploy.Runner.merge_prs/1` builds the client via `Deploy.GitHub.client/1` before invoking the reactor.
+
+### No `CollectPRMetadata` step
+
+The doc proposed a separate step to enrich merged PR data (author, linked issues, labels) for use in the deploy PR description. This was deferred — the merge step already returns `%{number, title, sha}` for each merged PR, which is sufficient for now. A metadata enrichment step can be added in Phase 3 if needed.
+
+### No `ConfirmPointOfNoReturn` step
+
+The doc proposed a confirmation gate before merging. This was not implemented — the tool runs non-interactively and the compensation strategy (log warning, return `:ok`) handles the "can't undo merges" concern adequately.
+
+### Branch update polling between merges
+
+Not anticipated in the original doc. When merging multiple PRs sequentially, each merge changes the deploy branch HEAD. The next PR's head branch is then out of date relative to its base. GitHub's `PUT /repos/{owner}/{repo}/pulls/{number}/update-branch` endpoint triggers an async update (returns 202), so the step polls `GET /repos/{owner}/{repo}/pulls/{number}` waiting for `"mergeable": true` before attempting the merge (2s intervals, up to 10 retries).
+
+### No `PartialMergeError` struct
+
+The doc suggested a structured error for partial merge failures. The current implementation returns a plain error string from the step identifying which PR failed. The reactor's compensation logs a warning that merges can't be undone. A structured error type can be added if the runner needs to make decisions based on partial success.
+
+### Setup reactor returns workspace
+
+Phase 1's Setup reactor was modified to return `%{branch: ..., workspace: ...}` instead of just the branch name string. This is needed so `Runner.merge_prs/1` can pass the workspace path to the Phase 2 reactor. A `ReturnMap` step aggregates the two values.
+
+### Configuration options deferred
+
+The doc proposed configurable merge method, CI checks, label filters, and merge order. None of these are implemented yet — squash merge is hardcoded, no CI pre-check, no label filtering, PRs merge in the order given/discovered.
+
+## Inputs
 
 | Input | Type | Description |
 |-------|------|-------------|
 | `workspace` | string | Path to the cloned repo (from Phase 1) |
 | `deploy_branch` | string | Name of deploy branch, e.g., `deploy-20260123` |
-| `github_token` | string | GitHub API token |
+| `client` | Req client | Pre-built GitHub API client (from `Deploy.GitHub.client/1`) |
 | `owner` | string | GitHub org/owner name |
 | `repo` | string | GitHub repository name |
-| `pr_numbers` | list (optional) | Specific PRs to include, or nil to auto-discover |
+| `pr_numbers` | list | Specific PRs to include, or `[]` to auto-discover |
 
 ## Outputs
 
-The reactor should return a map containing:
+The reactor returns a list of merged PR metadata:
 
 ```elixir
-%{
-  merged_prs: [
-    %{
-      number: 42,
-      title: "Add user authentication",
-      author: "developer1",
-      url: "https://github.com/org/repo/pull/42",
-      linked_issues: [123, 456]  # Issue numbers closed by this PR
-    },
-    # ... more PRs
-  ],
-  deploy_branch: "deploy-20260123",
-  head_sha: "abc123..."  # SHA of deploy branch after all merges
-}
+[
+  %{number: 42, title: "Add user authentication", sha: "abc123..."},
+  %{number: 43, title: "Fix login bug", sha: "def456..."}
+]
 ```
 
-This output is used by Phase 3 to populate the deploy PR description.
+`Deploy.Runner.merge_prs/1` wraps this as `{:ok, %{branch: ..., merged_prs: [...]}}`.
 
 ## Steps
 
@@ -64,25 +82,12 @@ This output is used by Phase 3 to populate the deploy PR description.
 **Purpose**: Get a list of PRs that are approved and ready to merge.
 
 **Logic**:
-1. Query GitHub API for open PRs targeting `staging` (or `main`, depending on your workflow)
-2. For each PR, check if it has at least one approval and no "changes requested"
-3. Optionally filter by labels (e.g., `ready-to-deploy`)
-4. Return list of PR numbers and metadata
+- If `pr_numbers` is non-empty, fetch each PR individually via `GET /repos/{owner}/{repo}/pulls/{number}`
+- Otherwise, list open PRs targeting staging via `GET /repos/{owner}/{repo}/pulls?state=open&base=staging`, then filter to those where `pr_approved?/4` returns true
 
-**GitHub API calls**:
-```
-GET /repos/{owner}/{repo}/pulls?state=open&base=staging
-GET /repos/{owner}/{repo}/pulls/{pr_number}/reviews
-```
+**Output**: List of `%{number, title, head_ref}` maps
 
-**Compensation**: None needed (read-only operation)
-
-**Edge cases**:
-- No approved PRs found → Return empty list, reactor should handle gracefully
-- PR approved but CI failing → Decide policy: skip or include? (recommend: skip with warning)
-- PR has merge conflicts with staging → Will fail at merge step
-
-**Output**: List of PR metadata maps
+**Compensation**: `:ok` (read-only)
 
 ---
 
@@ -90,290 +95,95 @@ GET /repos/{owner}/{repo}/pulls/{pr_number}/reviews
 
 **Purpose**: Retarget each approved PR from `staging` to the deploy branch.
 
-**Logic**:
-1. For each PR from Step 1, call GitHub API to change base branch
-2. Collect results, noting any failures
-3. If any fail, may need to decide: abort all or continue with successful ones
+**API call**: `PATCH /repos/{owner}/{repo}/pulls/{number}` with `{"base": "deploy-YYYYMMDD"}`
 
-**GitHub API calls**:
-```
-PATCH /repos/{owner}/{repo}/pulls/{pr_number}
-Body: {"base": "deploy-20260123"}
-```
+**Compensation**: Changes each PR's base back to `"staging"`. Tracks which PRs were successfully changed.
 
-**Compensation**: 
-- Change each PR's base back to `staging`
-- Must track which PRs were successfully changed to know what to revert
-
-**Edge cases**:
-- PR was closed/merged between Step 1 and Step 2 → Skip with warning
-- PR has conflicts with deploy branch → API will still succeed (conflicts checked at merge time)
-- Rate limiting → Implement retry with backoff
-
-**Output**: Map of `pr_number => {:ok, pr_data} | {:error, reason}`
+**Failure**: Stops on first error, returns which PR failed.
 
 ---
 
 ### Step 3: MergePRs
 
-**Purpose**: Merge each retargeted PR into the deploy branch.
-
-**⚠️ POINT OF NO RETURN**: Once a PR is merged, it cannot be automatically undone. The reactor should clearly mark this boundary.
+**Purpose**: Merge each retargeted PR into the deploy branch via squash merge.
 
 **Logic**:
-1. For each PR (in order), attempt to merge via GitHub API
-2. Use squash merge (configurable) for cleaner history
-3. After each merge, pull the deploy branch locally to stay in sync
-4. If a merge fails, stop and report (don't continue with remaining PRs)
+1. For the first PR, merge directly
+2. For subsequent PRs, call `PUT /repos/{owner}/{repo}/pulls/{number}/update-branch` to sync the PR's head with the updated base, then poll until `"mergeable": true`, then merge
+3. Stop on first failure
 
-**GitHub API calls**:
-```
-PUT /repos/{owner}/{repo}/pulls/{pr_number}/merge
-Body: {"merge_method": "squash", "commit_title": "PR title (#number)"}
-```
+**Compensation**: Logs a warning, returns `:ok`. Merges cannot be undone.
 
-**Local git operations** (after each merge):
-```bash
-git fetch origin deploy-20260123
-git reset --hard origin/deploy-20260123
-```
-
-**Compensation**:
-- **Cannot automatically compensate merged PRs**
-- Options:
-  1. Alert and require manual intervention
-  2. Create a revert commit (risky, changes history)
-  3. Delete deploy branch and start over (loses all merges)
-- Recommended: Alert, log what was merged, stop the reactor
-
-**Edge cases**:
-- Merge conflicts → Stop, report which PR conflicted, require manual resolution
-- CI required but not passing → GitHub API will reject merge (if branch protection enabled)
-- PR was already merged → Skip with warning
-- PR was closed → Skip with warning
-
-**Output**: List of successfully merged PR numbers and their merge commits
+**Output**: List of `%{number, title, sha}` maps
 
 ---
 
-### Step 4: CollectPRMetadata
+### Step 4: UpdateLocalBranch
 
-**Purpose**: Gather detailed information about merged PRs for the deploy PR description.
+**Purpose**: Sync the local workspace with the remote after all merges.
 
-**Logic**:
-1. For each merged PR, fetch:
-   - Title, number, author
-   - Linked issues (from PR body or GitHub's linked issues)
-   - Labels
-2. Format into a structure for Phase 3
+**Logic**: `git pull origin {deploy_branch}`
 
-**GitHub API calls**:
-```
-GET /repos/{owner}/{repo}/pulls/{pr_number}
-GET /repos/{owner}/{repo}/issues/{pr_number}/timeline  # For linked issues
-```
-
-Or use GraphQL for efficiency:
-```graphql
-query {
-  repository(owner: "org", name: "repo") {
-    pullRequest(number: 42) {
-      title
-      number
-      author { login }
-      closingIssuesReferences(first: 10) {
-        nodes { number title }
-      }
-    }
-  }
-}
-```
-
-**Compensation**: None needed (read-only)
-
-**Output**: Enriched PR metadata list
+**Compensation**: `:ok` (read-only)
 
 ---
 
-### Step 5: UpdateLocalBranch
-
-**Purpose**: Ensure local workspace has the final state of the deploy branch.
-
-**Logic**:
-```bash
-git fetch origin deploy-20260123
-git checkout deploy-20260123
-git reset --hard origin/deploy-20260123
-```
-
-**Compensation**: None needed
-
-**Output**: Final HEAD SHA of deploy branch
-
----
-
-## Reactor Definition Sketch
+## Reactor Definition
 
 ```elixir
 defmodule Deploy.Reactors.MergePRs do
   use Reactor
 
-  input :workspace
   input :deploy_branch
-  input :github_token
+  input :workspace
+  input :client
   input :owner
   input :repo
-  input :pr_numbers  # optional, nil = auto-discover
+  input :pr_numbers
 
   step :fetch_approved_prs, Deploy.Reactors.Steps.FetchApprovedPRs do
-    argument :github_token, input(:github_token)
+    argument :client, input(:client)
     argument :owner, input(:owner)
     argument :repo, input(:repo)
-    argument :explicit_prs, input(:pr_numbers)
+    argument :pr_numbers, input(:pr_numbers)
   end
 
   step :change_pr_bases, Deploy.Reactors.Steps.ChangePRBases do
-    argument :github_token, input(:github_token)
+    argument :client, input(:client)
     argument :owner, input(:owner)
     argument :repo, input(:repo)
-    argument :deploy_branch, input(:deploy_branch)
     argument :prs, result(:fetch_approved_prs)
-  end
-
-  # Mark point of no return - consider a custom step that logs/confirms
-  step :confirm_point_of_no_return, Deploy.Reactors.Steps.ConfirmNoReturn do
-    argument :prs_to_merge, result(:change_pr_bases)
-    wait_for :change_pr_bases
+    argument :deploy_branch, input(:deploy_branch)
   end
 
   step :merge_prs, Deploy.Reactors.Steps.MergePRs do
-    argument :github_token, input(:github_token)
+    argument :client, input(:client)
     argument :owner, input(:owner)
     argument :repo, input(:repo)
-    argument :workspace, input(:workspace)
     argument :prs, result(:change_pr_bases)
-    
-    wait_for :confirm_point_of_no_return
   end
 
-  step :collect_metadata, Deploy.Reactors.Steps.CollectPRMetadata do
-    argument :github_token, input(:github_token)
-    argument :owner, input(:owner)
-    argument :repo, input(:repo)
-    argument :merged_prs, result(:merge_prs)
-  end
-
-  step :update_local, Deploy.Reactors.Steps.UpdateLocalBranch do
+  step :update_local_branch, Deploy.Reactors.Steps.UpdateLocalBranch do
     argument :workspace, input(:workspace)
     argument :deploy_branch, input(:deploy_branch)
-    
     wait_for :merge_prs
   end
 
-  return :collect_metadata
+  return :merge_prs
 end
 ```
 
-## Error Handling Strategy
+## GitHub API Functions Added
 
-### Before Point of No Return
+- `Deploy.GitHub.list_prs/4` — `GET /repos/{owner}/{repo}/pulls` with `base` and `state` filters
+- `Deploy.GitHub.get_pr/4` — `GET /repos/{owner}/{repo}/pulls/{number}`
+- `Deploy.GitHub.update_branch/4` — `PUT /repos/{owner}/{repo}/pulls/{number}/update-branch`
 
-If any step fails before `merge_prs`:
-1. Compensation runs automatically (revert PR base changes)
-2. Reactor returns error with details
-3. User can fix issues and retry
+## Future Work
 
-### After Point of No Return
-
-If `merge_prs` or later steps fail:
-1. **Do NOT attempt to compensate merged PRs**
-2. Log exactly which PRs were successfully merged
-3. Log which PR failed and why
-4. Return a structured error that includes:
-   - Successfully merged PRs
-   - Failed PR and error
-   - Current state of deploy branch
-5. Require manual intervention
-
-### Suggested Error Structure
-
-```elixir
-{:error, %Deploy.PartialMergeError{
-  merged_prs: [41, 42, 43],
-  failed_pr: 44,
-  failure_reason: "Merge conflict in lib/foo.ex",
-  deploy_branch: "deploy-20260123",
-  deploy_branch_sha: "abc123",
-  recovery_instructions: "Resolve conflicts manually or delete deploy branch to restart"
-}}
-```
-
-## Testing Considerations
-
-### Unit Tests (with Mox)
-
-- `FetchApprovedPRs`: Mock GitHub API responses for various scenarios
-- `ChangePRBases`: Test success, partial failure, already-closed PRs
-- `MergePRs`: Test success, conflict failure, already-merged
-
-### Integration Tests
-
-Consider a test repository with:
-- Pre-created branches and PRs
-- Tests that create PRs, run the reactor, verify merges
-- Cleanup in test teardown
-
-### Manual Testing Checklist
-
-- [ ] No approved PRs → Handles gracefully
-- [ ] Single approved PR → Works end to end
-- [ ] Multiple approved PRs → Merges in order
-- [ ] PR with merge conflict → Fails gracefully, reports which PR
-- [ ] PR closed during process → Skips with warning
-- [ ] Network failure mid-process → Compensation works (before merge)
-- [ ] Network failure after merge → Proper error state reported
-
-## Configuration Options
-
-Consider making these configurable:
-
-```elixir
-config :deploy,
-  merge_method: :squash,           # :squash | :merge | :rebase
-  require_ci_pass: true,           # Skip PRs with failing CI?
-  required_labels: ["ready-to-deploy"],  # Filter PRs by label
-  auto_discover_prs: true,         # Or require explicit list
-  merge_order: :created_asc        # Order to merge PRs
-```
-
-## Open Questions for Implementation
-
-1. **Merge order**: Should PRs be merged in a specific order? (creation date, PR number, custom priority?)
-
-2. **Partial success handling**: If PR 3 of 5 fails to merge, should we:
-   - Stop immediately (current recommendation)
-   - Try remaining PRs anyway
-   - Let user configure behavior
-
-3. **CI status check**: Should we verify CI passes before attempting merge, or let GitHub's branch protection handle it?
-
-4. **Linked issues detection**: Use GitHub's automatic linking, parse PR body for `Fixes #123`, or both?
-
-5. **Notification hooks**: Should this phase emit events/notifications for:
-   - Each PR merged
-   - Failures
-   - Point of no return crossed
-
-## Dependencies on Existing Code
-
-This phase will use:
-- `Deploy.GitHub.change_pr_base/5` ✅ (exists)
-- `Deploy.GitHub.merge_pr/5` ✅ (exists)
-- `Deploy.GitHub.get_reviews/4` ✅ (exists)
-- `Deploy.GitHub.pr_approved?/4` ✅ (exists)
-- `Deploy.Git.cmd/2` ✅ (exists)
-
-May need to add:
-- `Deploy.GitHub.list_prs/4` - List PRs with filters
-- `Deploy.GitHub.get_pr/4` - Get single PR details
-- `Deploy.GitHub.get_linked_issues/4` - Get issues linked to PR
+- `CollectPRMetadata` step for enriched PR data (author, linked issues, labels)
+- Configurable merge method (squash/merge/rebase)
+- CI status pre-check before merge
+- Label-based filtering for auto-discovery
+- `PartialMergeError` struct for structured partial failure reporting
+- Merge ordering policy (by creation date, PR number, etc.)
