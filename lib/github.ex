@@ -323,6 +323,150 @@ defmodule Deploy.GitHub do
     end
   end
 
+  @doc """
+  Checks if a branch exists on the remote.
+  """
+  def branch_exists?(client, owner, repo, branch_name) do
+    case Req.get(client, url: "/repos/#{owner}/#{repo}/branches/#{branch_name}") do
+      {:ok, %{status: 200}} ->
+        {:ok, true}
+
+      {:ok, %{status: 404}} ->
+        {:ok, false}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to check branch (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Lists PRs that were merged into a specific branch.
+
+  Returns a list of maps with :number, :title, and :sha keys.
+  """
+  def list_merged_prs(client, owner, repo, base_branch) do
+    case Req.get(client,
+           url: "/repos/#{owner}/#{repo}/pulls",
+           params: %{state: "closed", base: base_branch}
+         ) do
+      {:ok, %{status: 200, body: prs}} ->
+        merged =
+          prs
+          |> Enum.filter(& &1["merged_at"])
+          |> Enum.map(fn pr ->
+            %{
+              number: pr["number"],
+              title: pr["title"],
+              sha: pr["merge_commit_sha"]
+            }
+          end)
+
+        {:ok, merged}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to list PRs (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Finds an existing PR from head branch to base branch.
+
+  Returns {:ok, %{number: n, url: url}} if found, {:ok, nil} if not found.
+  """
+  def find_pr(client, owner, repo, head_branch, base_branch) do
+    case Req.get(client,
+           url: "/repos/#{owner}/#{repo}/pulls",
+           params: %{state: "open", head: "#{owner}:#{head_branch}", base: base_branch}
+         ) do
+      {:ok, %{status: 200, body: [pr | _]}} ->
+        {:ok, %{number: pr["number"], url: pr["html_url"]}}
+
+      {:ok, %{status: 200, body: []}} ->
+        {:ok, nil}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to find PR (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Deletes a branch from the remote repository.
+  """
+  def delete_branch(client, owner, repo, branch_name) do
+    Logger.info("Deleting branch: #{branch_name}")
+
+    case Req.delete(client, url: "/repos/#{owner}/#{repo}/git/refs/heads/#{branch_name}") do
+      {:ok, %{status: 204}} ->
+        :ok
+
+      {:ok, %{status: 422}} ->
+        {:error, :branch_not_found}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to delete branch (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Checks if a commit is an ancestor of a branch.
+
+  Uses the compare API to determine if the commit is reachable from the branch HEAD.
+  """
+  def commit_in_branch?(client, owner, repo, commit_sha, branch_name) do
+    # Compare the commit to the branch - if "behind_by" is 0 or the commit is
+    # the same as the branch head, the commit is in the branch
+    case Req.get(client, url: "/repos/#{owner}/#{repo}/compare/#{commit_sha}...#{branch_name}") do
+      {:ok, %{status: 200, body: %{"status" => status}}} ->
+        # "identical" means same commit, "ahead" means branch is ahead of commit (commit is ancestor)
+        # "behind" means commit is ahead of branch (commit NOT in branch)
+        # "diverged" means they diverged (commit NOT in branch)
+        {:ok, status in ["identical", "ahead"]}
+
+      {:ok, %{status: 404}} ->
+        # Commit or branch not found
+        {:ok, false}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to compare commits (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Closes a pull request.
+  """
+  def close_pr(client, owner, repo, pr_number) do
+    Logger.info("Closing PR ##{pr_number}")
+
+    case Req.patch(client,
+           url: "/repos/#{owner}/#{repo}/pulls/#{pr_number}",
+           json: %{state: "closed"}
+         ) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Failed to close PR (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
   # Helper to conditionally add keys to a map
   defp maybe_add(map, _key, nil), do: map
   defp maybe_add(map, key, value), do: Map.put(map, key, value)

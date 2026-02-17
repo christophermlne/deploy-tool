@@ -255,4 +255,217 @@ defmodule Deploy.GitHubTest do
       assert {:ok, _} = Deploy.GitHub.update_release(client, "o", "r", 1, "new body")
     end
   end
+
+  describe "branch_exists?/4" do
+    test "returns true on 200" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, %{"name" => "deploy-20260217"})
+      end)
+
+      assert {:ok, true} = Deploy.GitHub.branch_exists?(client, "o", "r", "deploy-20260217")
+    end
+
+    test "returns false on 404" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"message" => "Branch not found"})
+      end)
+
+      assert {:ok, false} = Deploy.GitHub.branch_exists?(client, "o", "r", "nonexistent")
+    end
+
+    test "returns error on other status" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(500) |> Req.Test.json(%{"message" => "Server error"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.branch_exists?(client, "o", "r", "branch")
+      assert msg =~ "500"
+    end
+  end
+
+  describe "list_merged_prs/4" do
+    test "returns only merged PRs" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, [
+          %{
+            "number" => 1,
+            "title" => "Merged PR",
+            "merged_at" => "2026-02-17T10:00:00Z",
+            "merge_commit_sha" => "abc123"
+          },
+          %{
+            "number" => 2,
+            "title" => "Closed but not merged",
+            "merged_at" => nil,
+            "merge_commit_sha" => nil
+          }
+        ])
+      end)
+
+      assert {:ok, merged} = Deploy.GitHub.list_merged_prs(client, "o", "r", "deploy-branch")
+      assert length(merged) == 1
+      assert hd(merged).number == 1
+      assert hd(merged).title == "Merged PR"
+      assert hd(merged).sha == "abc123"
+    end
+
+    test "passes base param for closed PRs" do
+      client = stub_client(fn conn ->
+        query = URI.decode_query(conn.query_string)
+        assert query["state"] == "closed"
+        assert query["base"] == "deploy-20260217"
+        Req.Test.json(conn, [])
+      end)
+
+      assert {:ok, []} = Deploy.GitHub.list_merged_prs(client, "o", "r", "deploy-20260217")
+    end
+
+    test "returns error on non-200" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(500) |> Req.Test.json(%{"message" => "error"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.list_merged_prs(client, "o", "r", "branch")
+      assert msg =~ "500"
+    end
+  end
+
+  describe "find_pr/5" do
+    test "returns PR when found" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, [
+          %{"number" => 99, "html_url" => "https://github.com/o/r/pull/99"}
+        ])
+      end)
+
+      assert {:ok, %{number: 99, url: "https://github.com/o/r/pull/99"}} =
+               Deploy.GitHub.find_pr(client, "o", "r", "deploy-20260217", "staging")
+    end
+
+    test "returns nil when no matching PR" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, [])
+      end)
+
+      assert {:ok, nil} = Deploy.GitHub.find_pr(client, "o", "r", "deploy-20260217", "staging")
+    end
+
+    test "passes correct query params" do
+      client = stub_client(fn conn ->
+        query = URI.decode_query(conn.query_string)
+        assert query["state"] == "open"
+        assert query["head"] == "owner:deploy-branch"
+        assert query["base"] == "staging"
+        Req.Test.json(conn, [])
+      end)
+
+      assert {:ok, nil} = Deploy.GitHub.find_pr(client, "owner", "repo", "deploy-branch", "staging")
+    end
+
+    test "returns error on non-200" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(500) |> Req.Test.json(%{"message" => "error"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.find_pr(client, "o", "r", "head", "base")
+      assert msg =~ "500"
+    end
+  end
+
+  describe "delete_branch/4" do
+    test "returns ok on 204" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(204) |> Plug.Conn.send_resp(204, "")
+      end)
+
+      assert :ok = Deploy.GitHub.delete_branch(client, "o", "r", "branch-to-delete")
+    end
+
+    test "returns branch_not_found on 422" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(422) |> Req.Test.json(%{"message" => "Reference does not exist"})
+      end)
+
+      assert {:error, :branch_not_found} = Deploy.GitHub.delete_branch(client, "o", "r", "nonexistent")
+    end
+
+    test "returns error on other status" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(403) |> Req.Test.json(%{"message" => "Forbidden"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.delete_branch(client, "o", "r", "protected-branch")
+      assert msg =~ "403"
+    end
+  end
+
+  describe "close_pr/4" do
+    test "returns ok on 200" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, %{"number" => 1, "state" => "closed"})
+      end)
+
+      assert {:ok, %{"state" => "closed"}} = Deploy.GitHub.close_pr(client, "o", "r", 1)
+    end
+
+    test "returns error on non-200" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"message" => "Not found"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.close_pr(client, "o", "r", 999)
+      assert msg =~ "404"
+    end
+  end
+
+  describe "commit_in_branch?/5" do
+    test "returns true when commit is ancestor of branch (status: ahead)" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, %{"status" => "ahead", "ahead_by" => 5, "behind_by" => 0})
+      end)
+
+      assert {:ok, true} = Deploy.GitHub.commit_in_branch?(client, "o", "r", "abc123", "main")
+    end
+
+    test "returns true when commit is identical to branch HEAD" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, %{"status" => "identical", "ahead_by" => 0, "behind_by" => 0})
+      end)
+
+      assert {:ok, true} = Deploy.GitHub.commit_in_branch?(client, "o", "r", "abc123", "main")
+    end
+
+    test "returns false when commit is not in branch (status: behind)" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, %{"status" => "behind", "ahead_by" => 0, "behind_by" => 3})
+      end)
+
+      assert {:ok, false} = Deploy.GitHub.commit_in_branch?(client, "o", "r", "abc123", "main")
+    end
+
+    test "returns false when branches diverged" do
+      client = stub_client(fn conn ->
+        Req.Test.json(conn, %{"status" => "diverged", "ahead_by" => 2, "behind_by" => 3})
+      end)
+
+      assert {:ok, false} = Deploy.GitHub.commit_in_branch?(client, "o", "r", "abc123", "main")
+    end
+
+    test "returns false on 404 (commit or branch not found)" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"message" => "Not Found"})
+      end)
+
+      assert {:ok, false} = Deploy.GitHub.commit_in_branch?(client, "o", "r", "nonexistent", "main")
+    end
+
+    test "returns error on other status" do
+      client = stub_client(fn conn ->
+        conn |> Plug.Conn.put_status(500) |> Req.Test.json(%{"message" => "Server error"})
+      end)
+
+      assert {:error, msg} = Deploy.GitHub.commit_in_branch?(client, "o", "r", "abc123", "main")
+      assert msg =~ "500"
+    end
+  end
 end
