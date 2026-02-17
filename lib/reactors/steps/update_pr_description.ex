@@ -24,30 +24,9 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescription do
   @impl true
   def compensate(_result, _arguments, _context, _options), do: :ok
 
-  defp build_description(deploy_branch, merged_prs) do
-    title = format_heading(deploy_branch)
-    pr_lines = Enum.map_join(merged_prs, "\n", fn pr ->
-      "- ##{pr.number} #{pr.title}"
-    end)
-
-    """
-    ## #{title}
-
-    ### Included Pull Requests
-    #{pr_lines}
-
-    ### Checklist
-    - [ ] Verify deployment completes successfully
-    - [ ] Smoke test critical paths
-    - [ ] Check error rates in monitoring
-    """
-    |> String.trim()
+  defp build_description(_deploy_branch, merged_prs) do
+    merged_prs
+    |> Enum.map(&"##{&1.number}")
+    |> Enum.join("\n")
   end
-
-  defp format_heading("deploy-" <> date) do
-    <<y::binary-size(4), m::binary-size(2), d::binary-size(2)>> = date
-    "Deploy #{y}-#{m}-#{d}"
-  end
-
-  defp format_heading(branch), do: "Deploy #{branch}"
 end

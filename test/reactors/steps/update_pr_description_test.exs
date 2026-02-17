@@ -5,16 +5,13 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescriptionTest do
 
   defp stub_client(plug), do: Req.new(plug: plug)
 
-  test "builds and sets markdown description" do
+  test "builds description with PR numbers only" do
     client = stub_client(fn conn ->
       {:ok, body, _} = Plug.Conn.read_body(conn)
       decoded = Jason.decode!(body)
 
-      assert decoded["body"] =~ "## Deploy 2026-02-01"
-      assert decoded["body"] =~ "- #1 Feature A"
-      assert decoded["body"] =~ "- #2 Feature B"
-      assert decoded["body"] =~ "### Checklist"
-      assert decoded["body"] =~ "Smoke test"
+      # Should just be PR numbers, one per line
+      assert decoded["body"] == "#1\n#2"
 
       Req.Test.json(conn, %{"number" => 99})
     end)
@@ -38,7 +35,7 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescriptionTest do
     client = stub_client(fn conn ->
       {:ok, body, _} = Plug.Conn.read_body(conn)
       decoded = Jason.decode!(body)
-      assert decoded["body"] =~ "### Included Pull Requests"
+      assert decoded["body"] == ""
       Req.Test.json(conn, %{"number" => 99})
     end)
 
@@ -49,6 +46,26 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescriptionTest do
       pr_number: 99,
       deploy_branch: "deploy-20260201",
       merged_prs: []
+    }
+
+    assert {:ok, _} = UpdatePRDescription.run(arguments, %{}, [])
+  end
+
+  test "handles single merged PR" do
+    client = stub_client(fn conn ->
+      {:ok, body, _} = Plug.Conn.read_body(conn)
+      decoded = Jason.decode!(body)
+      assert decoded["body"] == "#42"
+      Req.Test.json(conn, %{"number" => 99})
+    end)
+
+    arguments = %{
+      client: client,
+      owner: "o",
+      repo: "r",
+      pr_number: 99,
+      deploy_branch: "deploy-20260201",
+      merged_prs: [%{number: 42, title: "Solo PR", sha: "xyz"}]
     }
 
     assert {:ok, _} = UpdatePRDescription.run(arguments, %{}, [])
