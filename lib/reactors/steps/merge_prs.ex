@@ -15,9 +15,11 @@ defmodule Deploy.Reactors.Steps.MergePRs do
     owner = arguments.owner
     repo = arguments.repo
     prs = arguments.prs
+    skip_conflicts = Map.get(arguments, :skip_conflicts, false)
 
     Enum.reduce_while(prs, {:ok, []}, fn pr, {:ok, acc} ->
       with :ok <- maybe_update_branch(client, owner, repo, pr.number, acc),
+           :ok <- check_mergeable(client, owner, repo, pr.number, skip_conflicts),
            {:ok, body} <- Deploy.GitHub.merge_pr(client, owner, repo, pr.number) do
         merged = %{
           number: pr.number,
@@ -42,6 +44,38 @@ defmodule Deploy.Reactors.Steps.MergePRs do
     case Deploy.GitHub.update_branch(client, owner, repo, pr_number) do
       {:ok, _} -> poll_until_mergeable(client, owner, repo, pr_number)
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Check mergeable status before merge (with polling for nil)
+  defp check_mergeable(_client, _owner, _repo, _pr_number, true), do: :ok
+
+  defp check_mergeable(client, owner, repo, pr_number, false) do
+    case poll_mergeable(client, owner, repo, pr_number) do
+      {:ok, true} -> :ok
+      {:ok, false} -> {:error, {:merge_conflict, pr_number}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp poll_mergeable(client, owner, repo, pr_number, attempts \\ 5) do
+    case Deploy.GitHub.get_pr(client, owner, repo, pr_number) do
+      {:ok, %{"mergeable" => true}} ->
+        {:ok, true}
+
+      {:ok, %{"mergeable" => false}} ->
+        {:ok, false}
+
+      {:ok, %{"mergeable" => nil}} when attempts > 0 ->
+        Process.sleep(1_000)
+        poll_mergeable(client, owner, repo, pr_number, attempts - 1)
+
+      {:ok, %{"mergeable" => nil}} ->
+        # Assume conflict if still nil after polling
+        {:ok, false}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

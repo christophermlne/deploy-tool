@@ -7,7 +7,7 @@ defmodule Deploy.Reactors.MergePRsTest do
 
   defp stub_client(plug), do: Req.new(plug: plug)
 
-  test "full reactor: fetches, retargets, merges, and pulls" do
+  test "full reactor: fetches, validates, retargets, merges, and pulls" do
     call_count = :counters.new(1, [:atomics])
 
     client = stub_client(fn conn ->
@@ -23,12 +23,28 @@ defmodule Deploy.Reactors.MergePRsTest do
             "head" => %{"ref" => "feature-1"}
           })
 
+        # validate_prs: GET /repos/o/r/pulls/1/reviews (approval check)
+        {"GET", 2} ->
+          Req.Test.json(conn, [
+            %{"user" => %{"login" => "reviewer"}, "state" => "APPROVED", "submitted_at" => "2026-01-01T00:00:00Z"}
+          ])
+
+        # validate_prs: GET /repos/o/r/commits/feature-1/check-runs (CI check)
+        {"GET", 3} ->
+          Req.Test.json(conn, %{"check_runs" => [
+            %{"name" => "test", "status" => "completed", "conclusion" => "success"}
+          ]})
+
         # change_pr_bases: PATCH /repos/o/r/pulls/1
-        {"PATCH", 2} ->
+        {"PATCH", 4} ->
           Req.Test.json(conn, %{"number" => 1, "base" => %{"ref" => "deploy-20260201"}})
 
+        # merge_prs: check_mergeable GET /repos/o/r/pulls/1
+        {"GET", 5} ->
+          Req.Test.json(conn, %{"mergeable" => true})
+
         # merge_prs: PUT /repos/o/r/pulls/1/merge
-        {"PUT", 3} ->
+        {"PUT", 6} ->
           Req.Test.json(conn, %{"merged" => true, "sha" => "deadbeef"})
       end
     end)
@@ -45,7 +61,11 @@ defmodule Deploy.Reactors.MergePRsTest do
       client: client,
       owner: "o",
       repo: "r",
-      pr_numbers: [1]
+      pr_numbers: [1],
+      skip_reviews: false,
+      skip_ci: false,
+      skip_conflicts: false,
+      skip_validation: false
     }
 
     assert {:ok, [merged]} = Reactor.run(Deploy.Reactors.MergePRs, inputs)

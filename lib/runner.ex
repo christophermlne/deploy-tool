@@ -68,9 +68,19 @@ defmodule Deploy.Runner do
   Options:
     - `pr_numbers` — list of specific PR numbers to merge (default: auto-discover)
     - `deploy_date` — override deploy date (default: today)
+    - `skip_reviews` — skip approval validation (default: false)
+    - `skip_ci` — skip CI validation (default: false)
+    - `skip_conflicts` — skip merge conflict validation (default: false)
+    - `skip_validation` — skip all validation checks (default: false)
   """
   def merge_prs(opts \\ []) do
     pr_numbers = Keyword.get(opts, :pr_numbers, [])
+
+    # Validation skip options
+    skip_validation = Keyword.get(opts, :skip_validation, false)
+    skip_reviews = skip_validation || Keyword.get(opts, :skip_reviews, false)
+    skip_ci = skip_validation || Keyword.get(opts, :skip_ci, false)
+    skip_conflicts = skip_validation || Keyword.get(opts, :skip_conflicts, false)
 
     with {:ok, %{branch: branch, workspace: workspace}} <- setup(opts) do
       inputs = %{
@@ -79,7 +89,11 @@ defmodule Deploy.Runner do
         client: Deploy.GitHub.client(Config.github_token()),
         owner: Config.github_owner(),
         repo: Config.github_repo(),
-        pr_numbers: pr_numbers
+        pr_numbers: pr_numbers,
+        skip_reviews: skip_reviews,
+        skip_ci: skip_ci,
+        skip_conflicts: skip_conflicts,
+        skip_validation: skip_validation
       }
 
       Logger.info("Starting PR merge phase")
@@ -146,6 +160,10 @@ defmodule Deploy.Runner do
       - `false` (default) — fail if deploy branch already exists
       - `true` — detect state and continue from where it left off
       - `:force` — delete existing deploy branch and start fresh
+    - `skip_reviews` — skip approval validation (default: false)
+    - `skip_ci` — skip CI validation (default: false)
+    - `skip_conflicts` — skip merge conflict validation (default: false)
+    - `skip_validation` — skip all validation checks (default: false)
   """
   def deploy_pr(opts \\ []) do
     resume = Keyword.get(opts, :resume, false)
@@ -354,6 +372,12 @@ defmodule Deploy.Runner do
     reviewers = Keyword.get(opts, :reviewers, [])
     deploy_branch = "deploy-#{deploy_date}"
 
+    # Validation skip options
+    skip_validation = Keyword.get(opts, :skip_validation, false)
+    skip_reviews = skip_validation || Keyword.get(opts, :skip_reviews, false)
+    skip_ci = skip_validation || Keyword.get(opts, :skip_ci, false)
+    skip_conflicts = skip_validation || Keyword.get(opts, :skip_conflicts, false)
+
     with {:ok, workspace} <- create_temp_workspace(),
          :ok <- clone_and_checkout_branch(workspace, deploy_branch) do
       inputs = %{
@@ -362,7 +386,11 @@ defmodule Deploy.Runner do
         client: GitHub.client(Config.github_token()),
         owner: Config.github_owner(),
         repo: Config.github_repo(),
-        pr_numbers: remaining_pr_numbers
+        pr_numbers: remaining_pr_numbers,
+        skip_reviews: skip_reviews,
+        skip_ci: skip_ci,
+        skip_conflicts: skip_conflicts,
+        skip_validation: skip_validation
       }
 
       Logger.info("Merging #{length(remaining_pr_numbers)} remaining PRs")
@@ -388,6 +416,12 @@ defmodule Deploy.Runner do
     reviewers = Keyword.get(opts, :reviewers, [])
     deploy_branch = "deploy-#{deploy_date}"
 
+    # Validation skip options
+    skip_validation = Keyword.get(opts, :skip_validation, false)
+    skip_reviews = skip_validation || Keyword.get(opts, :skip_reviews, false)
+    skip_ci = skip_validation || Keyword.get(opts, :skip_ci, false)
+    skip_conflicts = skip_validation || Keyword.get(opts, :skip_conflicts, false)
+
     with {:ok, workspace} <- create_temp_workspace(),
          :ok <- clone_and_checkout_branch(workspace, deploy_branch) do
       inputs = %{
@@ -396,7 +430,11 @@ defmodule Deploy.Runner do
         client: GitHub.client(Config.github_token()),
         owner: Config.github_owner(),
         repo: Config.github_repo(),
-        pr_numbers: pr_numbers
+        pr_numbers: pr_numbers,
+        skip_reviews: skip_reviews,
+        skip_ci: skip_ci,
+        skip_conflicts: skip_conflicts,
+        skip_validation: skip_validation
       }
 
       Logger.info("Starting merge phase with existing branch")

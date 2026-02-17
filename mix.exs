@@ -49,8 +49,7 @@ defmodule Deploy.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get"],
-      deploy: ["run -e 'Deploy.Runner.setup()'"]
+      setup: ["deps.get"]
     ]
   end
 end
