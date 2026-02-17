@@ -77,7 +77,7 @@ defmodule Deploy.Runner do
       case Reactor.run(MergePRsReactor, inputs) do
         {:ok, merged_prs} ->
           Logger.info("Merged #{length(merged_prs)} PRs")
-          {:ok, %{branch: branch, merged_prs: merged_prs}}
+          {:ok, %{branch: branch, workspace: workspace, merged_prs: merged_prs}}
 
         {:error, errors} ->
           Logger.error("PR merge failed: #{inspect(errors)}")
@@ -97,8 +97,9 @@ defmodule Deploy.Runner do
   def deploy_pr(opts \\ []) do
     reviewers = Keyword.get(opts, :reviewers, [])
 
-    with {:ok, %{branch: branch, merged_prs: merged_prs}} <- merge_prs(opts) do
+    with {:ok, %{branch: branch, workspace: workspace, merged_prs: merged_prs}} <- merge_prs(opts) do
       inputs = %{
+        workspace: workspace,
         deploy_branch: branch,
         merged_prs: merged_prs,
         client: Deploy.GitHub.client(Config.github_token()),
