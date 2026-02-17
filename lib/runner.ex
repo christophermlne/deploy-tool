@@ -16,6 +16,7 @@ defmodule Deploy.Runner do
   alias Deploy.Config
   alias Deploy.Reactors.Setup
   alias Deploy.Reactors.MergePRs, as: MergePRsReactor
+  alias Deploy.Reactors.DeployPR, as: DeployPRReactor
 
   @doc """
   Runs the setup phase of deployment.
@@ -80,6 +81,41 @@ defmodule Deploy.Runner do
 
         {:error, errors} ->
           Logger.error("PR merge failed: #{inspect(errors)}")
+          {:error, errors}
+      end
+    end
+  end
+
+  @doc """
+  Runs the full deployment: setup, merge PRs, and create deploy PR.
+
+  Options:
+    - `pr_numbers` — list of specific PR numbers to merge (default: auto-discover)
+    - `deploy_date` — override deploy date (default: today)
+    - `reviewers` — list of GitHub usernames to request review from (default: [])
+  """
+  def deploy_pr(opts \\ []) do
+    reviewers = Keyword.get(opts, :reviewers, [])
+
+    with {:ok, %{branch: branch, merged_prs: merged_prs}} <- merge_prs(opts) do
+      inputs = %{
+        deploy_branch: branch,
+        merged_prs: merged_prs,
+        client: Deploy.GitHub.client(Config.github_token()),
+        owner: Config.github_owner(),
+        repo: Config.github_repo(),
+        reviewers: reviewers
+      }
+
+      Logger.info("Creating deploy PR")
+
+      case Reactor.run(DeployPRReactor, inputs) do
+        {:ok, %{number: pr_number, url: pr_url}} ->
+          Logger.info("Deploy PR created: #{pr_url}")
+          {:ok, %{branch: branch, merged_prs: merged_prs, pr_number: pr_number, pr_url: pr_url}}
+
+        {:error, errors} ->
+          Logger.error("Deploy PR creation failed: #{inspect(errors)}")
           {:error, errors}
       end
     end
