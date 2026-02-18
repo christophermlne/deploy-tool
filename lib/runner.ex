@@ -27,6 +27,7 @@ defmodule Deploy.Runner do
   alias Deploy.Reactors.Setup
   alias Deploy.Reactors.MergePRs, as: MergePRsReactor
   alias Deploy.Reactors.DeployPR, as: DeployPRReactor
+  alias Deploy.Reactors.FullDeploy
 
   @doc """
   Runs the setup phase of deployment.
@@ -179,6 +180,13 @@ defmodule Deploy.Runner do
     deploy_date = Keyword.get(opts, :deploy_date, Config.deploy_date())
     deploy_branch = "deploy-#{deploy_date}"
     reviewers = Keyword.get(opts, :reviewers, [])
+    pr_numbers = Keyword.get(opts, :pr_numbers, [])
+
+    # Validation skip options
+    skip_validation = Keyword.get(opts, :skip_validation, false)
+    skip_reviews = skip_validation || Keyword.get(opts, :skip_reviews, false)
+    skip_ci = skip_validation || Keyword.get(opts, :skip_ci, false)
+    skip_conflicts = skip_validation || Keyword.get(opts, :skip_conflicts, false)
 
     client = GitHub.client(Config.github_token())
     owner = Config.github_owner()
@@ -192,8 +200,31 @@ defmodule Deploy.Runner do
            "Use resume: true to continue or resume: :force to start fresh."}
 
       {:ok, false} ->
-        with {:ok, %{branch: branch, workspace: workspace, merged_prs: merged_prs}} <- merge_prs(opts) do
-          run_deploy_pr_reactor(branch, workspace, merged_prs, reviewers)
+        inputs = %{
+          repo_url: Config.repo_url(),
+          github_token: Config.github_token(),
+          deploy_date: deploy_date,
+          client: client,
+          owner: owner,
+          repo: repo,
+          pr_numbers: pr_numbers,
+          skip_reviews: skip_reviews,
+          skip_ci: skip_ci,
+          skip_conflicts: skip_conflicts,
+          skip_validation: skip_validation,
+          reviewers: reviewers
+        }
+
+        Logger.info("Starting full deployment for #{deploy_date}")
+
+        case Reactor.run(FullDeploy, inputs) do
+          {:ok, result} ->
+            Logger.info("Deploy complete: #{result.pr_url}")
+            {:ok, result}
+
+          {:error, errors} ->
+            Logger.error("Deploy failed: #{inspect(errors)}")
+            {:error, errors}
         end
 
       {:error, reason} ->
