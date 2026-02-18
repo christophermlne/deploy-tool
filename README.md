@@ -81,6 +81,29 @@ Before merging PRs, the tool validates:
 
 Validation can be skipped individually or entirely using the skip options.
 
+## Workflow Diagram
+
+Generate a Mermaid diagram of the deployment workflow:
+
+```bash
+# Generate expanded diagram to file (full_deploy.mmd)
+mix deploy.mermaid --expand
+
+# Output to terminal for copy-paste
+mix deploy.mermaid --expand --format copy
+
+# Generate URL for Mermaid Live Editor
+mix deploy.mermaid --expand --format url
+
+# Save to specific location with descriptions
+mix deploy.mermaid --expand --describe --output docs/workflow.mmd
+```
+
+View generated diagrams at:
+- https://mermaid.live/edit (paste diagram source)
+- VS Code with Mermaid extension
+- GitHub (native Mermaid support in markdown)
+
 ## Testing
 
 ```bash
