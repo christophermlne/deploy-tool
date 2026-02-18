@@ -12,6 +12,10 @@ defmodule Deploy.Reactors.DeployPR do
 
   use Reactor
 
+  middlewares do
+    middleware Deploy.Reactors.Middleware.EventBroadcaster
+  end
+
   input :workspace
   input :deploy_branch
   input :merged_prs

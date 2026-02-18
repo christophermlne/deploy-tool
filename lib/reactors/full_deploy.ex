@@ -13,6 +13,10 @@ defmodule Deploy.Reactors.FullDeploy do
 
   use Reactor
 
+  middlewares do
+    middleware Deploy.Reactors.Middleware.EventBroadcaster
+  end
+
   # Config inputs (used to build derived values)
   input :repo_url
   input :github_token

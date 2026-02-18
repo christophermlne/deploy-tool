@@ -49,7 +49,9 @@ defmodule Deploy.Runner do
 
     Logger.info("Starting deployment setup for #{deploy_date}")
 
-    case Reactor.run(Setup, inputs) do
+    context = build_reactor_context(opts, "setup")
+
+    case Reactor.run(Setup, inputs, context) do
       {:ok, %{branch: branch_name, workspace: workspace}} ->
         Logger.info("Setup complete. Deploy branch: #{branch_name}")
         {:ok, %{branch: branch_name, workspace: workspace}}
@@ -99,7 +101,9 @@ defmodule Deploy.Runner do
 
       Logger.info("Starting PR merge phase")
 
-      case Reactor.run(MergePRsReactor, inputs) do
+      context = build_reactor_context(opts, "merge_prs")
+
+      case Reactor.run(MergePRsReactor, inputs, context) do
         {:ok, merged_prs} ->
           Logger.info("Merged #{length(merged_prs)} PRs")
           {:ok, %{branch: branch, workspace: workspace, merged_prs: merged_prs}}
@@ -217,7 +221,9 @@ defmodule Deploy.Runner do
 
         Logger.info("Starting full deployment for #{deploy_date}")
 
-        case Reactor.run(FullDeploy, inputs) do
+        context = build_reactor_context(opts, "full_deploy")
+
+        case Reactor.run(FullDeploy, inputs, context) do
           {:ok, result} ->
             Logger.info("Deploy complete: #{result.pr_url}")
             {:ok, result}
@@ -379,7 +385,9 @@ defmodule Deploy.Runner do
 
     Logger.info("Creating deploy PR")
 
-    case Reactor.run(DeployPRReactor, inputs) do
+    context = %{current_phase: "deploy_pr"}
+
+    case Reactor.run(DeployPRReactor, inputs, context) do
       {:ok, %{number: pr_number, url: pr_url}} ->
         Logger.info("Deploy PR created: #{pr_url}")
         {:ok, %{branch: branch, merged_prs: merged_prs, pr_number: pr_number, pr_url: pr_url}}
@@ -426,7 +434,9 @@ defmodule Deploy.Runner do
 
       Logger.info("Merging #{length(remaining_pr_numbers)} remaining PRs")
 
-      case Reactor.run(MergePRsReactor, inputs) do
+      context = %{current_phase: "merge_prs"}
+
+      case Reactor.run(MergePRsReactor, inputs, context) do
         {:ok, newly_merged_prs} ->
           all_merged = already_merged_prs ++ newly_merged_prs
           Logger.info("Merged #{length(newly_merged_prs)} PRs, total: #{length(all_merged)}")
@@ -470,7 +480,9 @@ defmodule Deploy.Runner do
 
       Logger.info("Starting merge phase with existing branch")
 
-      case Reactor.run(MergePRsReactor, inputs) do
+      context = %{current_phase: "merge_prs"}
+
+      case Reactor.run(MergePRsReactor, inputs, context) do
         {:ok, merged_prs} ->
           Logger.info("Merged #{length(merged_prs)} PRs")
           run_deploy_pr_reactor(deploy_branch, workspace, merged_prs, reviewers)
@@ -525,5 +537,15 @@ defmodule Deploy.Runner do
   """
   def setup_async(opts \\ []) do
     Task.async(fn -> setup(opts) end)
+  end
+
+  # Builds context for Reactor.run with deployment_id and current_phase
+  # when available. This enables the EventBroadcaster middleware to
+  # track step progress.
+  defp build_reactor_context(opts, phase) do
+    case Keyword.get(opts, :deployment_id) do
+      nil -> %{current_phase: phase}
+      deployment_id -> %{deployment_id: deployment_id, current_phase: phase}
+    end
   end
 end

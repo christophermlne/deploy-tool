@@ -15,7 +15,8 @@ defmodule Deploy.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {Deploy.Application, []}
     ]
   end
 
@@ -34,6 +35,13 @@ defmodule Deploy.MixProject do
       # For Slack webhooks
       {:httpoison, "~> 2.0"},
 
+      # Database
+      {:ecto_sql, "~> 3.11"},
+      {:ecto_sqlite3, "~> 0.17"},
+
+      # PubSub for event broadcasting
+      {:phoenix_pubsub, "~> 2.1"},
+
       {:plug, "~> 1.0", only: :test},
 
       # For development/testing
@@ -49,7 +57,9 @@ defmodule Deploy.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get"]
+      setup: ["deps.get"],
+      "ecto.setup": ["ecto.create", "ecto.migrate"],
+      "ecto.reset": ["ecto.drop", "ecto.setup"]
     ]
   end
 end

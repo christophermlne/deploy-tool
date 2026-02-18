@@ -13,6 +13,10 @@ defmodule Deploy.Reactors.Setup do
 
   use Reactor
 
+  middlewares do
+    middleware Deploy.Reactors.Middleware.EventBroadcaster
+  end
+
   input :repo_url
   input :github_token
   input :deploy_date  # e.g., "20260123"

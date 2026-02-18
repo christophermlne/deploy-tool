@@ -26,3 +26,8 @@ deploy-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
