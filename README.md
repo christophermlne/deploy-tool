@@ -299,3 +299,27 @@ mix deploy.mermaid --expand --format url
 ```bash
 mix test
 ```
+
+## Docker (Development)
+
+Run the deploy tool without installing Elixir locally:
+
+```bash
+# Build the image
+docker build -f Dockerfile.dev -t deploy-dev .
+
+# Run a deployment
+docker run --rm \
+  -e GITHUB_TOKEN="ghp_xxxx" \
+  -e DEPLOY_REPO_URL="https://github.com/org/repo.git" \
+  deploy-dev mix deploy 123 456
+
+# Run tests
+docker run --rm deploy-dev mix test
+
+# Interactive shell
+docker run --rm -it \
+  -e GITHUB_TOKEN="ghp_xxxx" \
+  -e DEPLOY_REPO_URL="https://github.com/org/repo.git" \
+  deploy-dev iex -S mix
+```
