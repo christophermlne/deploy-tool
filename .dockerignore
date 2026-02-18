@@ -1,0 +1,8 @@
+_build/
+deps/
+.git/
+.env
+*.md
+.claude/
+docs/
+cover/
