@@ -1,0 +1,30 @@
+<header class="bg-white shadow">
+  <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between">
+      <h1 class="text-xl font-bold tracking-tight text-gray-900">
+        <.link navigate={~p"/"} class="hover:text-indigo-600">
+          Deploy Tool
+        </.link>
+      </h1>
+      <nav class="flex items-center gap-4">
+        <.link navigate={~p"/deployments"} class="text-sm text-gray-600 hover:text-gray-900">
+          History
+        </.link>
+        <.link navigate={~p"/deployments/new"} class="text-sm text-gray-600 hover:text-gray-900">
+          New
+        </.link>
+        <%= if assigns[:current_user] do %>
+          <span class="text-sm text-gray-500"><%= @current_user.username %></span>
+          <.link href={~p"/logout"} method="delete" class="text-sm text-red-600 hover:text-red-800">
+            Logout
+          </.link>
+        <% end %>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+  <.flash_group flash={@flash} />
+  <%= @inner_content %>
+</main>

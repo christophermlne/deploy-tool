@@ -1,0 +1,106 @@
+<div>
+  <div class="sm:flex sm:items-center sm:justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Deployment History</h1>
+    <div class="mt-4 sm:mt-0 flex items-center gap-4">
+      <form phx-change="filter" class="flex items-center gap-2">
+        <label for="status" class="text-sm text-gray-500">Filter:</label>
+        <select
+          name="status"
+          id="status"
+          class="rounded-md border-gray-300 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <%= for {label, value} <- status_options() do %>
+            <option value={value} selected={@status_filter && to_string(@status_filter) == value}>
+              <%= label %>
+            </option>
+          <% end %>
+        </select>
+      </form>
+      <.link
+        navigate={~p"/deployments/new"}
+        class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+      >
+        New Deployment
+      </.link>
+    </div>
+  </div>
+
+  <%= if @deployments == [] do %>
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-12 text-center">
+        <p class="text-sm text-gray-500">
+          <%= if @status_filter do %>
+            No deployments with status "<%= @status_filter %>".
+          <% else %>
+            No deployments yet.
+          <% end %>
+        </p>
+      </div>
+    </div>
+  <% else %>
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              ID
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Date
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              PRs
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Created
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Duration
+            </th>
+            <th scope="col" class="relative px-6 py-3">
+              <span class="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <%= for deployment <- @deployments do %>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                #<%= deployment.id %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <%= deployment.deploy_date %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <%= Enum.join(deployment.pr_numbers || [], ", ") %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <% {label, classes} = status_badge(deployment.status) %>
+                <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{classes}"}>
+                  <%= label %>
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <%= Calendar.strftime(deployment.inserted_at, "%Y-%m-%d %H:%M") %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <%= format_duration(deployment) %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <.link
+                  navigate={~p"/deployments/#{deployment.id}"}
+                  class="text-indigo-600 hover:text-indigo-900"
+                >
+                  View
+                </.link>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>

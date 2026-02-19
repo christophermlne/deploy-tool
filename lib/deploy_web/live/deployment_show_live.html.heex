@@ -1,0 +1,225 @@
+<div class="space-y-6">
+  <%!-- Header --%>
+  <div class="sm:flex sm:items-center sm:justify-between">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-2xl font-bold text-gray-900">
+          Deployment <%= @deployment.deploy_date %>
+        </h1>
+        <% {label, classes} = status_badge(@deployment.status) %>
+        <span class={"px-2.5 py-0.5 inline-flex text-sm font-semibold rounded-full #{classes}"}>
+          <%= label %>
+        </span>
+      </div>
+      <p class="mt-1 text-sm text-gray-500">
+        ID: #<%= @deployment.id %> &bull;
+        PRs: <%= Enum.join(@deployment.pr_numbers || [], ", ") %>
+      </p>
+    </div>
+    <div class="mt-4 sm:mt-0 flex gap-3">
+      <%= if @deployment.status in [:failed, :cancelled] and not @is_active do %>
+        <button
+          type="button"
+          phx-click="resume"
+          class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+        >
+          Resume Deployment
+        </button>
+      <% end %>
+      <%= if @is_active do %>
+        <button
+          type="button"
+          phx-click="cancel"
+          data-confirm="Are you sure you want to cancel this deployment?"
+          class="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500"
+        >
+          Cancel
+        </button>
+      <% end %>
+      <.link
+        navigate={~p"/deployments"}
+        class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+      >
+        &larr; Back to List
+      </.link>
+    </div>
+  </div>
+
+  <%!-- Error Display --%>
+  <%= if @error do %>
+    <div class="rounded-md bg-red-50 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800">Error</h3>
+          <div class="mt-2 text-sm text-red-700">
+            <pre class="whitespace-pre-wrap"><%= @error %></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <%!-- Progress Panel --%>
+    <div class="lg:col-span-2 space-y-4">
+      <h2 class="text-lg font-semibold text-gray-900">Progress</h2>
+
+      <%= if @steps == [] do %>
+        <div class="bg-white shadow rounded-lg p-6 text-center text-gray-500">
+          <%= if @is_active do %>
+            <div class="flex items-center justify-center">
+              <svg class="animate-spin h-5 w-5 text-indigo-600 mr-3" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              Starting deployment...
+            </div>
+          <% else %>
+            No steps recorded yet.
+          <% end %>
+        </div>
+      <% else %>
+        <%!-- Phase Groups --%>
+        <%= for {phase, steps} <- group_steps_by_phase(@steps) do %>
+          <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-medium text-gray-900">
+                  <%= phase_display_name(phase) %>
+                </h3>
+                <% {label, classes} = status_badge(phase_status(steps)) %>
+                <span class={"px-2 inline-flex text-xs font-semibold rounded-full #{classes}"}>
+                  <%= label %>
+                </span>
+              </div>
+            </div>
+            <ul role="list" class="divide-y divide-gray-200">
+              <%= for step <- steps do %>
+                <li class="px-4 py-3">
+                  <div class="flex items-center">
+                    <% {_icon, icon_class} = step_status_icon(step.status) %>
+                    <div class={"flex-shrink-0 h-5 w-5 #{icon_class}"}>
+                      <%= case step.status do %>
+                        <% :pending -> %>
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        <% :in_progress -> %>
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        <% :completed -> %>
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        <% :failed -> %>
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        <% _ -> %>
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                      <% end %>
+                    </div>
+                    <div class="ml-3 flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900">
+                        <%= step.step_name %>
+                      </p>
+                      <%= if step.started_at do %>
+                        <p class="text-xs text-gray-500">
+                          Started: <%= Calendar.strftime(step.started_at, "%H:%M:%S") %>
+                          <%= if step.completed_at do %>
+                            &bull; Completed: <%= Calendar.strftime(step.completed_at, "%H:%M:%S") %>
+                          <% end %>
+                        </p>
+                      <% end %>
+                    </div>
+                  </div>
+                  <%= if step.error do %>
+                    <div class="mt-2 ml-8 text-sm text-red-600 bg-red-50 rounded p-2">
+                      <pre class="whitespace-pre-wrap text-xs"><%= step.error %></pre>
+                    </div>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <%!-- Side Panel --%>
+    <div class="space-y-4">
+      <%!-- Details --%>
+      <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-3 border-b border-gray-200">
+          <h3 class="text-sm font-medium text-gray-900">Details</h3>
+        </div>
+        <dl class="px-4 py-3 space-y-3">
+          <div>
+            <dt class="text-xs text-gray-500 uppercase">Status</dt>
+            <dd class="mt-1 text-sm text-gray-900"><%= @deployment.status %></dd>
+          </div>
+          <div>
+            <dt class="text-xs text-gray-500 uppercase">Created</dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <%= Calendar.strftime(@deployment.inserted_at, "%Y-%m-%d %H:%M:%S") %>
+            </dd>
+          </div>
+          <%= if @deployment.started_at do %>
+            <div>
+              <dt class="text-xs text-gray-500 uppercase">Started</dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                <%= Calendar.strftime(@deployment.started_at, "%Y-%m-%d %H:%M:%S") %>
+              </dd>
+            </div>
+          <% end %>
+          <%= if @deployment.completed_at do %>
+            <div>
+              <dt class="text-xs text-gray-500 uppercase">Completed</dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                <%= Calendar.strftime(@deployment.completed_at, "%Y-%m-%d %H:%M:%S") %>
+              </dd>
+            </div>
+          <% end %>
+        </dl>
+      </div>
+
+      <%!-- Merged PRs --%>
+      <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-3 border-b border-gray-200">
+          <h3 class="text-sm font-medium text-gray-900">
+            Merged PRs (<%= length(@merged_prs) %>/<%= length(@deployment.pr_numbers || []) %>)
+          </h3>
+        </div>
+        <%= if @merged_prs == [] do %>
+          <div class="px-4 py-6 text-center text-sm text-gray-500">
+            No PRs merged yet
+          </div>
+        <% else %>
+          <ul role="list" class="divide-y divide-gray-200">
+            <%= for pr <- @merged_prs do %>
+              <li class="px-4 py-3">
+                <div class="flex items-center">
+                  <svg class="h-4 w-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="ml-2 text-sm">
+                    <span class="font-medium text-gray-900">#<%= pr.pr_number %></span>
+                    <span class="text-gray-500"><%= Map.get(pr, :pr_title, "") %></span>
+                  </span>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

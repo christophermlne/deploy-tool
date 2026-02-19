@@ -35,7 +35,10 @@ defmodule Deploy.Application do
       Deploy.Deployments.Registry,
 
       # DynamicSupervisor for runner processes
-      Deploy.Deployments.Supervisor
+      Deploy.Deployments.Supervisor,
+
+      # Phoenix web endpoint
+      DeployWeb.Endpoint
     ]
 
     opts = [strategy: :one_for_one, name: Deploy.Supervisor]

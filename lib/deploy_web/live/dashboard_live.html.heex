@@ -1,0 +1,158 @@
+<div class="space-y-8">
+  <%!-- Active Deployments Section --%>
+  <%= if @active_deployments != [] do %>
+    <section>
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">
+        Active Deployments
+      </h2>
+      <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <ul role="list" class="divide-y divide-gray-200">
+          <%= for deployment <- @active_deployments do %>
+            <li>
+              <.link
+                navigate={~p"/deployments/#{deployment.id}"}
+                class="block hover:bg-gray-50"
+              >
+                <div class="px-4 py-4 sm:px-6">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                      <div class="animate-pulse h-2 w-2 rounded-full bg-blue-500 mr-3"></div>
+                      <p class="text-sm font-medium text-indigo-600 truncate">
+                        Deploy <%= deployment.deploy_date %>
+                      </p>
+                    </div>
+                    <div class="ml-2 flex-shrink-0 flex">
+                      <% {label, classes} = status_badge(deployment.status) %>
+                      <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{classes}"}>
+                        <%= label %>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="mt-2 sm:flex sm:justify-between">
+                    <div class="sm:flex">
+                      <p class="text-sm text-gray-500">
+                        PRs: <%= Enum.join(deployment.pr_numbers || [], ", ") %>
+                      </p>
+                    </div>
+                    <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                      <%= if deployment.current_step do %>
+                        <span class="text-blue-600">
+                          <%= deployment.current_phase %>: <%= deployment.current_step %>
+                        </span>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              </.link>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    </section>
+  <% end %>
+
+  <%!-- Quick Actions --%>
+  <section>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-900">Quick Actions</h2>
+    </div>
+    <div class="bg-white shadow sm:rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-semibold leading-6 text-gray-900">
+              Start a new deployment
+            </h3>
+            <p class="mt-1 text-sm text-gray-500">
+              Create a deploy PR by merging multiple PRs into a staging branch.
+            </p>
+          </div>
+          <div>
+            <.link
+              navigate={~p"/deployments/new"}
+              class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+              New Deployment
+            </.link>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <%!-- Recent Deployments --%>
+  <section>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-900">Recent Deployments</h2>
+      <.link navigate={~p"/deployments"} class="text-sm text-indigo-600 hover:text-indigo-500">
+        View all &rarr;
+      </.link>
+    </div>
+
+    <%= if @recent_deployments == [] do %>
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-12 text-center">
+          <p class="text-sm text-gray-500">No deployments yet.</p>
+          <p class="mt-1 text-sm text-gray-500">
+            <.link navigate={~p"/deployments/new"} class="text-indigo-600 hover:text-indigo-500">
+              Start your first deployment
+            </.link>
+          </p>
+        </div>
+      </div>
+    <% else %>
+      <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                PRs
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created
+              </th>
+              <th scope="col" class="relative px-6 py-3">
+                <span class="sr-only">View</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <%= for deployment <- @recent_deployments do %>
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <%= deployment.deploy_date %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <%= Enum.join(deployment.pr_numbers || [], ", ") %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <% {label, classes} = status_badge(deployment.status) %>
+                  <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{classes}"}>
+                    <%= label %>
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <%= Calendar.strftime(deployment.inserted_at, "%Y-%m-%d %H:%M") %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <.link
+                    navigate={~p"/deployments/#{deployment.id}"}
+                    class="text-indigo-600 hover:text-indigo-900"
+                  >
+                    View
+                  </.link>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </section>
+</div>

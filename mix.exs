@@ -39,27 +39,41 @@ defmodule Deploy.MixProject do
       {:ecto_sql, "~> 3.11"},
       {:ecto_sqlite3, "~> 0.17"},
 
-      # PubSub for event broadcasting
+      # Phoenix and LiveView
+      {:phoenix, "~> 1.7"},
+      {:phoenix_html, "~> 4.1"},
+      {:phoenix_live_view, "~> 1.0"},
       {:phoenix_pubsub, "~> 2.1"},
+      {:bandit, "~> 1.5"},
 
-      {:plug, "~> 1.0", only: :test},
+      # Authentication
+      {:bcrypt_elixir, "~> 3.0"},
+
+      # Assets (dev only)
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
+
+      # Plug is required by Phoenix, not just tests
 
       # For development/testing
-      # {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
       {:mox, "~> 1.0", only: :test},
-
       {:igniter, "~> 0.6", only: [:dev, :test]}
-
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
   end
 
   defp aliases do
     [
-      setup: ["deps.get"],
+      setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "ecto.setup": ["ecto.create", "ecto.migrate"],
-      "ecto.reset": ["ecto.drop", "ecto.setup"]
+      "ecto.reset": ["ecto.drop", "ecto.setup"],
+      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.build": ["tailwind deploy", "esbuild deploy"],
+      "assets.deploy": [
+        "tailwind deploy --minify",
+        "esbuild deploy --minify",
+        "phx.digest"
+      ]
     ]
   end
 end

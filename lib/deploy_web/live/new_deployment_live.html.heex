@@ -1,0 +1,145 @@
+<div class="max-w-2xl mx-auto">
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">New Deployment</h1>
+    <p class="mt-2 text-sm text-gray-600">
+      Enter the PR numbers to include in this deployment.
+    </p>
+  </div>
+
+  <div class="bg-white shadow sm:rounded-lg">
+    <form phx-submit="submit" phx-change="validate" class="space-y-6 p-6">
+      <%!-- PR Numbers Input --%>
+      <div>
+        <label for="pr_numbers" class="block text-sm font-medium text-gray-700">
+          PR Numbers
+        </label>
+        <div class="mt-1">
+          <input
+            type="text"
+            name="pr_numbers"
+            id="pr_numbers"
+            value={@pr_numbers_input}
+            placeholder="e.g., 123, 456, 789"
+            class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            autofocus
+          />
+        </div>
+        <p class="mt-2 text-sm text-gray-500">
+          Enter PR numbers separated by spaces or commas. You can use formats like "123", "#123", or "PR-123".
+        </p>
+      </div>
+
+      <%!-- Deploy Date (read-only) --%>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">
+          Deploy Date
+        </label>
+        <div class="mt-1">
+          <div class="py-2 px-3 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-700">
+            <%= @deploy_date %>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Options --%>
+      <div class="border-t border-gray-200 pt-6">
+        <fieldset>
+          <legend class="text-sm font-medium text-gray-700">Options</legend>
+          <div class="mt-4 space-y-4">
+            <div class="flex items-start">
+              <div class="flex items-center h-5">
+                <input
+                  id="skip_reviews"
+                  name="skip_reviews"
+                  type="checkbox"
+                  value="true"
+                  checked={@skip_reviews}
+                  class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                />
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="skip_reviews" class="font-medium text-gray-700">Skip review checks</label>
+                <p class="text-gray-500">Allow PRs without required approvals</p>
+              </div>
+            </div>
+
+            <div class="flex items-start">
+              <div class="flex items-center h-5">
+                <input
+                  id="skip_ci"
+                  name="skip_ci"
+                  type="checkbox"
+                  value="true"
+                  checked={@skip_ci}
+                  class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                />
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="skip_ci" class="font-medium text-gray-700">Skip CI checks</label>
+                <p class="text-gray-500">Allow PRs with failing or pending CI</p>
+              </div>
+            </div>
+
+            <div class="flex items-start">
+              <div class="flex items-center h-5">
+                <input
+                  id="skip_conflicts"
+                  name="skip_conflicts"
+                  type="checkbox"
+                  value="true"
+                  checked={@skip_conflicts}
+                  class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                />
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="skip_conflicts" class="font-medium text-gray-700">Skip conflict check</label>
+                <p class="text-gray-500">Don't fail if PRs have merge conflicts</p>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      <%!-- Error Display --%>
+      <%= if @error do %>
+        <div class="rounded-md bg-red-50 p-4">
+          <div class="flex">
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-red-800"><%= @error %></h3>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Submit Button --%>
+      <div class="flex items-center justify-end gap-4 border-t border-gray-200 pt-6">
+        <.link
+          navigate={~p"/"}
+          class="text-sm font-medium text-gray-700 hover:text-gray-500"
+        >
+          Cancel
+        </.link>
+        <button
+          type="submit"
+          disabled={@submitting}
+          class={[
+            "inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm",
+            "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
+            @submitting && "bg-indigo-400 cursor-not-allowed",
+            !@submitting && "bg-indigo-600 hover:bg-indigo-700"
+          ]}
+        >
+          <%= if @submitting do %>
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Starting...
+          <% else %>
+            Start Deployment
+          <% end %>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
