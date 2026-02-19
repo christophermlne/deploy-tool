@@ -4,6 +4,10 @@ defmodule DeployWeb.CoreComponents do
   """
 
   use Phoenix.Component
+  use Phoenix.VerifiedRoutes,
+    endpoint: DeployWeb.Endpoint,
+    router: DeployWeb.Router,
+    statics: DeployWeb.static_paths()
 
   alias Phoenix.LiveView.JS
 
@@ -385,5 +389,170 @@ defmodule DeployWeb.CoreComponents do
     Enum.reduce(opts, msg, fn {key, value}, acc ->
       String.replace(acc, "%{#{key}}", fn _ -> to_string(value) end)
     end)
+  end
+
+  @doc """
+  Renders a deployment table with consistent columns.
+
+  ## Examples
+
+      <.deployment_table deployments={@deployments} />
+  """
+  attr :deployments, :list, required: true
+
+  def deployment_table(assigns) do
+    ~H"""
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              ID
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Date
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              PRs
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Created
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Duration
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Deploy PR
+            </th>
+            <th scope="col" class="relative px-6 py-3">
+              <span class="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <.deployment_row :for={deployment <- @deployments} deployment={deployment} />
+        </tbody>
+      </table>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a single deployment table row.
+  """
+  attr :deployment, :map, required: true
+
+  def deployment_row(assigns) do
+    ~H"""
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        #<%= @deployment.id %>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        <%= @deployment.deploy_date %>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <%= for {pr_number, idx} <- Enum.with_index(@deployment.pr_numbers || []) do %><%= if idx > 0 do %>, <% end %><a href={pr_url(pr_number)} target="_blank" class="text-indigo-600 hover:underline">#<%= pr_number %></a><% end %>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap">
+        <.status_badge status={@deployment.status} />
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <%= Calendar.strftime(@deployment.inserted_at, "%Y-%m-%d %H:%M") %>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <%= format_duration(@deployment) %>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm">
+        <%= if @deployment.deploy_pr_number do %>
+          <a href={pr_url(@deployment.deploy_pr_number)} target="_blank" class="text-indigo-600 hover:underline">
+            #<%= @deployment.deploy_pr_number %>
+          </a>
+        <% else %>
+          <span class="text-gray-400">-</span>
+        <% end %>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <.link navigate={~p"/deployments/#{@deployment.id}"} class="text-indigo-600 hover:text-indigo-900">
+          View
+        </.link>
+      </td>
+    </tr>
+    """
+  end
+
+  @doc """
+  Returns the GitHub URL for a PR number.
+
+  ## Examples
+
+      pr_url(123)
+      #=> "https://github.com/owner/repo/pull/123"
+  """
+  def pr_url(pr_number) do
+    owner = Deploy.Config.github_owner()
+    repo = Deploy.Config.github_repo()
+    "https://github.com/#{owner}/#{repo}/pull/#{pr_number}"
+  end
+
+  @doc """
+  Renders a status badge.
+
+  ## Examples
+
+      <.status_badge status={:completed} />
+      <.status_badge status={:completed} class="text-sm" />
+  """
+  attr :status, :atom, required: true
+  attr :class, :string, default: nil
+
+  def status_badge(assigns) do
+    {label, color_classes} = status_badge_style(assigns.status)
+    assigns = assign(assigns, label: label, color_classes: color_classes)
+
+    ~H"""
+    <span class={["px-2 inline-flex font-semibold rounded-full", @color_classes, @class || "text-xs leading-5"]}>
+      <%= @label %>
+    </span>
+    """
+  end
+
+  defp status_badge_style(status) do
+    case status do
+      :pending -> {"Pending", "bg-yellow-100 text-yellow-800"}
+      :in_progress -> {"In Progress", "bg-blue-100 text-blue-800"}
+      :completed -> {"Completed", "bg-green-100 text-green-800"}
+      :failed -> {"Failed", "bg-red-100 text-red-800"}
+      :cancelled -> {"Cancelled", "bg-gray-100 text-gray-800"}
+      :skipped -> {"Skipped", "bg-gray-100 text-gray-600"}
+      _ -> {"Unknown", "bg-gray-100 text-gray-800"}
+    end
+  end
+
+  defp format_duration(deployment) do
+    case {deployment.started_at, deployment.completed_at} do
+      {nil, _} -> "-"
+      {started, nil} ->
+        seconds = DateTime.diff(DateTime.utc_now(), started)
+        format_seconds(seconds) <> " (running)"
+      {started, completed} ->
+        seconds = DateTime.diff(completed, started)
+        format_seconds(seconds)
+    end
+  end
+
+  defp format_seconds(seconds) when seconds < 60, do: "#{seconds}s"
+  defp format_seconds(seconds) when seconds < 3600 do
+    minutes = div(seconds, 60)
+    secs = rem(seconds, 60)
+    "#{minutes}m #{secs}s"
+  end
+  defp format_seconds(seconds) do
+    hours = div(seconds, 3600)
+    minutes = div(rem(seconds, 3600), 60)
+    "#{hours}h #{minutes}m"
   end
 end

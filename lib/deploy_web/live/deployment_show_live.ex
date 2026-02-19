@@ -160,18 +160,6 @@ defmodule DeployWeb.DeploymentShowLive do
   defp format_error(:cancelled), do: "Deployment was cancelled"
   defp format_error(error), do: inspect(error)
 
-  defp status_badge(status) do
-    case status do
-      :pending -> {"Pending", "bg-yellow-100 text-yellow-800"}
-      :in_progress -> {"In Progress", "bg-blue-100 text-blue-800"}
-      :completed -> {"Completed", "bg-green-100 text-green-800"}
-      :failed -> {"Failed", "bg-red-100 text-red-800"}
-      :cancelled -> {"Cancelled", "bg-gray-100 text-gray-800"}
-      :skipped -> {"Skipped", "bg-gray-100 text-gray-600"}
-      _ -> {"Unknown", "bg-gray-100 text-gray-800"}
-    end
-  end
-
   defp step_status_icon(status) do
     case status do
       :pending -> {"clock", "text-gray-400"}
@@ -213,11 +201,5 @@ defmodule DeployWeb.DeploymentShowLive do
       Enum.any?(steps, &(&1.status == :in_progress)) -> :in_progress
       true -> :pending
     end
-  end
-
-  defp pr_url(pr_number) do
-    owner = Deploy.Config.github_owner()
-    repo = Deploy.Config.github_repo()
-    "https://github.com/#{owner}/#{repo}/pull/#{pr_number}"
   end
 end

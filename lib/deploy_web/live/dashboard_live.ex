@@ -43,15 +43,4 @@ defmodule DeployWeb.DashboardLive do
       active_deployments: active
     )
   end
-
-  defp status_badge(status) do
-    case status do
-      :pending -> {"Pending", "bg-yellow-100 text-yellow-800"}
-      :in_progress -> {"In Progress", "bg-blue-100 text-blue-800"}
-      :completed -> {"Completed", "bg-green-100 text-green-800"}
-      :failed -> {"Failed", "bg-red-100 text-red-800"}
-      :cancelled -> {"Cancelled", "bg-gray-100 text-gray-800"}
-      _ -> {"Unknown", "bg-gray-100 text-gray-800"}
-    end
-  end
 end

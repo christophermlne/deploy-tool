@@ -6,10 +6,7 @@
         <h1 class="text-2xl font-bold text-gray-900">
           Deployment <%= @deployment.deploy_date %>
         </h1>
-        <% {label, classes} = status_badge(@deployment.status) %>
-        <span class={"px-2.5 py-0.5 inline-flex text-sm font-semibold rounded-full #{classes}"}>
-          <%= label %>
-        </span>
+        <.status_badge status={@deployment.status} class="text-sm py-0.5" />
       </div>
       <p class="mt-1 text-sm text-gray-500">
         ID: #<%= @deployment.id %> &bull;
@@ -92,10 +89,7 @@
                 <h3 class="text-sm font-medium text-gray-900">
                   <%= phase_display_name(phase) %>
                 </h3>
-                <% {label, classes} = status_badge(phase_status(steps)) %>
-                <span class={"px-2 inline-flex text-xs font-semibold rounded-full #{classes}"}>
-                  <%= label %>
-                </span>
+                <.status_badge status={phase_status(steps)} />
               </div>
             </div>
             <ul role="list" class="divide-y divide-gray-200">

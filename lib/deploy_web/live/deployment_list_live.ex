@@ -76,17 +76,6 @@ defmodule DeployWeb.DeploymentListLive do
     assign(socket, deployments: deployments)
   end
 
-  defp status_badge(status) do
-    case status do
-      :pending -> {"Pending", "bg-yellow-100 text-yellow-800"}
-      :in_progress -> {"In Progress", "bg-blue-100 text-blue-800"}
-      :completed -> {"Completed", "bg-green-100 text-green-800"}
-      :failed -> {"Failed", "bg-red-100 text-red-800"}
-      :cancelled -> {"Cancelled", "bg-gray-100 text-gray-800"}
-      _ -> {"Unknown", "bg-gray-100 text-gray-800"}
-    end
-  end
-
   defp status_options do
     [
       {"All", ""},
@@ -96,36 +85,5 @@ defmodule DeployWeb.DeploymentListLive do
       {"Failed", "failed"},
       {"Cancelled", "cancelled"}
     ]
-  end
-
-  defp format_duration(deployment) do
-    case {deployment.started_at, deployment.completed_at} do
-      {nil, _} -> "-"
-      {started, nil} ->
-        # Still running, show elapsed time
-        seconds = DateTime.diff(DateTime.utc_now(), started)
-        format_seconds(seconds) <> " (running)"
-      {started, completed} ->
-        seconds = DateTime.diff(completed, started)
-        format_seconds(seconds)
-    end
-  end
-
-  defp format_seconds(seconds) when seconds < 60, do: "#{seconds}s"
-  defp format_seconds(seconds) when seconds < 3600 do
-    minutes = div(seconds, 60)
-    secs = rem(seconds, 60)
-    "#{minutes}m #{secs}s"
-  end
-  defp format_seconds(seconds) do
-    hours = div(seconds, 3600)
-    minutes = div(rem(seconds, 3600), 60)
-    "#{hours}h #{minutes}m"
-  end
-
-  defp pr_url(pr_number) do
-    owner = Deploy.Config.github_owner()
-    repo = Deploy.Config.github_repo()
-    "https://github.com/#{owner}/#{repo}/pull/#{pr_number}"
   end
 end
