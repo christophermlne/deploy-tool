@@ -184,11 +184,10 @@ defmodule Deploy.Deployments.Runner do
       {:ok, deploy_result} ->
         {:ok, deployment} = Deployments.complete_deployment(state.deployment)
 
-        # Store deploy PR info if available
+        # Store deploy PR number if available
         {:ok, deployment} =
           Deployments.update_deployment(deployment, %{
-            deploy_pr_number: deploy_result[:pr_number],
-            deploy_pr_url: deploy_result[:pr_url]
+            deploy_pr_number: deploy_result[:pr_number]
           })
 
         Events.broadcast_deployment_completed(state.deployment_id, deploy_result)

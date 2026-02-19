@@ -192,13 +192,13 @@
       </div>
 
       <%!-- Deploy PR --%>
-      <%= if @deployment.deploy_pr_url do %>
+      <%= if @deployment.deploy_pr_number do %>
         <div class="bg-white shadow rounded-lg">
           <div class="px-4 py-3 border-b border-gray-200">
             <h3 class="text-sm font-medium text-gray-900">Deploy PR</h3>
           </div>
           <div class="px-4 py-3">
-            <a href={@deployment.deploy_pr_url} target="_blank"
+            <a href={pr_url(@deployment.deploy_pr_number)} target="_blank"
                class="inline-flex items-center text-sm text-indigo-600 hover:underline">
               <svg class="h-4 w-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5z" clip-rule="evenodd" />

@@ -93,8 +93,8 @@
                 <%= format_duration(deployment) %>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <%= if deployment.deploy_pr_url do %>
-                  <a href={deployment.deploy_pr_url} target="_blank" class="text-indigo-600 hover:underline">
+                <%= if deployment.deploy_pr_number do %>
+                  <a href={pr_url(deployment.deploy_pr_number)} target="_blank" class="text-indigo-600 hover:underline">
                     #<%= deployment.deploy_pr_number %>
                   </a>
                 <% else %>
