@@ -158,6 +158,10 @@ defmodule DeployWeb.DeploymentShowLive do
 
   defp format_error(error), do: Deploy.ErrorFormatter.format(error)
 
+  # Helper for template to format step errors from database
+  defp format_step_error(nil), do: nil
+  defp format_step_error(error), do: Deploy.ErrorFormatter.format(error)
+
   defp step_status_icon(status) do
     case status do
       :pending -> {"clock", "text-gray-400"}

@@ -137,7 +137,7 @@
                   </div>
                   <%= if step.error do %>
                     <div class="mt-2 ml-8 text-sm text-red-600 bg-red-50 rounded p-2">
-                      <pre class="whitespace-pre-wrap text-xs"><%= step.error %></pre>
+                      <pre class="whitespace-pre-wrap text-xs"><%= format_step_error(step.error) %></pre>
                     </div>
                   <% end %>
                 </li>
