@@ -49,7 +49,7 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
   @impl true
   def event({:run_start, _arguments}, step, context) do
     with {:ok, deployment_id, phase} <- extract_context(context) do
-      step_name = to_string(step.name)
+      step_name = step_name_to_string(step.name)
 
       # Create or update step record
       ensure_step_record(deployment_id, phase, step_name)
@@ -68,7 +68,7 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
 
   def event({:run_complete, result}, step, context) do
     with {:ok, deployment_id, phase} <- extract_context(context) do
-      step_name = to_string(step.name)
+      step_name = step_name_to_string(step.name)
 
       # Update step record
       complete_step_record(deployment_id, phase, step_name, result)
@@ -87,7 +87,7 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
 
   def event({:run_error, errors}, step, context) do
     with {:ok, deployment_id, phase} <- extract_context(context) do
-      step_name = to_string(step.name)
+      step_name = step_name_to_string(step.name)
       error_message = format_errors(errors)
 
       # Update step record
@@ -134,6 +134,18 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
       {deployment_id, phase} -> {:ok, deployment_id, phase}
     end
   end
+
+  # Convert step names to strings - handles atoms, strings, and tuples
+  defp step_name_to_string(name) when is_atom(name), do: Atom.to_string(name)
+  defp step_name_to_string(name) when is_binary(name), do: name
+  defp step_name_to_string({:compose, name}), do: "compose_#{step_name_to_string(name)}"
+  defp step_name_to_string(tuple) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.map(&step_name_to_string/1)
+    |> Enum.join("_")
+  end
+  defp step_name_to_string(other), do: inspect(other)
 
   defp ensure_step_record(deployment_id, phase, step_name) do
     deployment = Deployments.get_deployment!(deployment_id)

@@ -264,7 +264,7 @@ defmodule Deploy.Runner do
 
         :create_deploy_pr ->
           Logger.info("Resuming: creating deploy PR")
-          run_deploy_pr_from_existing_branch(deploy_branch, state.merged_prs, reviewers)
+          run_deploy_pr_from_existing_branch(opts, deploy_branch, state.merged_prs, reviewers)
 
         :merge_remaining ->
           Logger.info("Resuming: merging #{length(state.remaining_pr_numbers)} remaining PRs")
@@ -372,7 +372,7 @@ defmodule Deploy.Runner do
     end
   end
 
-  defp run_deploy_pr_reactor(branch, workspace, merged_prs, reviewers) do
+  defp run_deploy_pr_reactor(opts, branch, workspace, merged_prs, reviewers) do
     inputs = %{
       workspace: workspace,
       deploy_branch: branch,
@@ -385,7 +385,7 @@ defmodule Deploy.Runner do
 
     Logger.info("Creating deploy PR")
 
-    context = %{current_phase: "deploy_pr"}
+    context = build_reactor_context(opts, "deploy_pr")
 
     case Reactor.run(DeployPRReactor, inputs, context) do
       {:ok, %{number: pr_number, url: pr_url}} ->
@@ -398,11 +398,11 @@ defmodule Deploy.Runner do
     end
   end
 
-  defp run_deploy_pr_from_existing_branch(deploy_branch, merged_prs, reviewers) do
+  defp run_deploy_pr_from_existing_branch(opts, deploy_branch, merged_prs, reviewers) do
     # Create a temporary workspace and clone the repo to work with the existing branch
     with {:ok, workspace} <- create_temp_workspace(),
          :ok <- clone_and_checkout_branch(workspace, deploy_branch) do
-      run_deploy_pr_reactor(deploy_branch, workspace, merged_prs, reviewers)
+      run_deploy_pr_reactor(opts, deploy_branch, workspace, merged_prs, reviewers)
     end
   end
 
@@ -434,13 +434,13 @@ defmodule Deploy.Runner do
 
       Logger.info("Merging #{length(remaining_pr_numbers)} remaining PRs")
 
-      context = %{current_phase: "merge_prs"}
+      context = build_reactor_context(opts, "merge_prs")
 
       case Reactor.run(MergePRsReactor, inputs, context) do
         {:ok, newly_merged_prs} ->
           all_merged = already_merged_prs ++ newly_merged_prs
           Logger.info("Merged #{length(newly_merged_prs)} PRs, total: #{length(all_merged)}")
-          run_deploy_pr_reactor(deploy_branch, workspace, all_merged, reviewers)
+          run_deploy_pr_reactor(opts, deploy_branch, workspace, all_merged, reviewers)
 
         {:error, errors} ->
           Logger.error("PR merge failed: #{inspect(errors)}")
@@ -480,12 +480,12 @@ defmodule Deploy.Runner do
 
       Logger.info("Starting merge phase with existing branch")
 
-      context = %{current_phase: "merge_prs"}
+      context = build_reactor_context(opts, "merge_prs")
 
       case Reactor.run(MergePRsReactor, inputs, context) do
         {:ok, merged_prs} ->
           Logger.info("Merged #{length(merged_prs)} PRs")
-          run_deploy_pr_reactor(deploy_branch, workspace, merged_prs, reviewers)
+          run_deploy_pr_reactor(opts, deploy_branch, workspace, merged_prs, reviewers)
 
         {:error, errors} ->
           Logger.error("PR merge failed: #{inspect(errors)}")

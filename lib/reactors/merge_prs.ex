@@ -34,6 +34,8 @@ defmodule Deploy.Reactors.MergePRs do
     argument :owner, input(:owner)
     argument :repo, input(:repo)
     argument :pr_numbers, input(:pr_numbers)
+
+    max_retries 0
   end
 
   step :validate_prs, Deploy.Reactors.Steps.ValidatePRs do
@@ -44,6 +46,9 @@ defmodule Deploy.Reactors.MergePRs do
     argument :skip_reviews, input(:skip_reviews)
     argument :skip_ci, input(:skip_ci)
     argument :skip_validation, input(:skip_validation)
+
+    # Validation failures should not retry - they need user intervention
+    max_retries 0
   end
 
   step :change_pr_bases, Deploy.Reactors.Steps.ChangePRBases do
@@ -52,6 +57,8 @@ defmodule Deploy.Reactors.MergePRs do
     argument :repo, input(:repo)
     argument :prs, result(:validate_prs)
     argument :deploy_branch, input(:deploy_branch)
+
+    max_retries 0
   end
 
   step :merge_prs, Deploy.Reactors.Steps.MergePRs do
@@ -60,6 +67,8 @@ defmodule Deploy.Reactors.MergePRs do
     argument :repo, input(:repo)
     argument :prs, result(:change_pr_bases)
     argument :skip_conflicts, input(:skip_conflicts)
+
+    max_retries 0
   end
 
   step :update_local_branch, Deploy.Reactors.Steps.UpdateLocalBranch do
@@ -67,6 +76,7 @@ defmodule Deploy.Reactors.MergePRs do
     argument :deploy_branch, input(:deploy_branch)
 
     wait_for :merge_prs
+    max_retries 0
   end
 
   return :merge_prs

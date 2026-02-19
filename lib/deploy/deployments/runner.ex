@@ -24,7 +24,7 @@ defmodule Deploy.Deployments.Runner do
       )
   """
 
-  use GenServer
+  use GenServer, restart: :temporary
   require Logger
 
   alias Deploy.Deployments
@@ -61,27 +61,40 @@ defmodule Deploy.Deployments.Runner do
     pr_numbers = Keyword.fetch!(opts, :pr_numbers)
     deploy_date = Keyword.get(opts, :deploy_date, Deploy.Config.deploy_date())
 
+    # Extract skip options
+    skip_reviews = Keyword.get(opts, :skip_reviews, false)
+    skip_ci = Keyword.get(opts, :skip_ci, false)
+    skip_conflicts = Keyword.get(opts, :skip_conflicts, false)
+
     # Check for existing active deployment
     case Deployments.get_active_deployment(deploy_date) do
       %Deployments.Deployment{} = existing ->
         {:error, {:deployment_exists, existing.id}}
 
       nil ->
-        # Create the deployment record
+        # Create the deployment record with skip options
         deployment_attrs = %{
           deploy_date: deploy_date,
           pr_numbers: pr_numbers,
-          status: :pending
+          status: :pending,
+          skip_reviews: skip_reviews,
+          skip_ci: skip_ci,
+          skip_conflicts: skip_conflicts
         }
 
         case Deployments.create_deployment(deployment_attrs) do
           {:ok, deployment} ->
-            # Start the runner process
+            # Start the runner process - pass skip options from deployment record
             runner_opts = [
               deployment_id: deployment.id,
               pr_numbers: pr_numbers,
               deploy_date: deploy_date,
-              runner_opts: Keyword.drop(opts, [:pr_numbers, :deploy_date])
+              runner_opts: [
+                resume: Keyword.get(opts, :resume, false),
+                skip_reviews: deployment.skip_reviews,
+                skip_ci: deployment.skip_ci,
+                skip_conflicts: deployment.skip_conflicts
+              ]
             ]
 
             case Deployments.Supervisor.start_runner(runner_opts) do

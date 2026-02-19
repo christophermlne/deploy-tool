@@ -23,12 +23,15 @@ defmodule Deploy.Reactors.Setup do
 
   step :create_workspace, Deploy.Reactors.Steps.CreateWorkspace do
     # No inputs needed—just creates a temp directory
+    max_retries 0
   end
 
   step :clone_repo, Deploy.Reactors.Steps.CloneRepo do
     argument :workspace, result(:create_workspace)
     argument :repo_url, input(:repo_url)
     argument :github_token, input(:github_token)
+
+    max_retries 0
   end
 
   step :fetch_staging, Deploy.Reactors.Steps.GitFetch do
@@ -36,6 +39,7 @@ defmodule Deploy.Reactors.Setup do
     argument :branch, value("staging")
 
     wait_for :clone_repo
+    max_retries 0
   end
 
   step :create_deploy_branch, Deploy.Reactors.Steps.CreateDeployBranch do
@@ -44,6 +48,7 @@ defmodule Deploy.Reactors.Setup do
     argument :base_branch, value("staging")
 
     wait_for :fetch_staging
+    max_retries 0
   end
 
   step :push_deploy_branch, Deploy.Reactors.Steps.GitPush do
@@ -51,11 +56,14 @@ defmodule Deploy.Reactors.Setup do
     argument :branch, result(:create_deploy_branch)
 
     wait_for :create_deploy_branch
+    max_retries 0
   end
 
   step :setup_result, Deploy.Reactors.Steps.ReturnMap do
     argument :branch, result(:push_deploy_branch)
     argument :workspace, result(:create_workspace)
+
+    max_retries 0
   end
 
   return :setup_result

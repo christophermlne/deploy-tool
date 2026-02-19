@@ -26,11 +26,15 @@ defmodule Deploy.Reactors.DeployPR do
 
   step :bump_version_files, Deploy.Reactors.Steps.BumpVersionFiles do
     argument :workspace, input(:workspace)
+
+    max_retries 0
   end
 
   step :commit_version_bump, Deploy.Reactors.Steps.CommitVersionBump do
     argument :workspace, input(:workspace)
     argument :new_version, result(:bump_version_files, [:new_version])
+
+    max_retries 0
   end
 
   step :push_version_bump, Deploy.Reactors.Steps.PushVersionBump do
@@ -38,6 +42,7 @@ defmodule Deploy.Reactors.DeployPR do
     argument :deploy_branch, input(:deploy_branch)
 
     wait_for :commit_version_bump
+    max_retries 0
   end
 
   step :create_deploy_pr, Deploy.Reactors.Steps.CreateDeployPR do
@@ -47,6 +52,7 @@ defmodule Deploy.Reactors.DeployPR do
     argument :deploy_branch, input(:deploy_branch)
 
     wait_for :push_version_bump
+    max_retries 0
   end
 
   step :update_pr_description, Deploy.Reactors.Steps.UpdatePRDescription do
@@ -56,6 +62,8 @@ defmodule Deploy.Reactors.DeployPR do
     argument :pr_number, result(:create_deploy_pr, [:number])
     argument :merged_prs, input(:merged_prs)
     argument :deploy_branch, input(:deploy_branch)
+
+    max_retries 0
   end
 
   step :request_review, Deploy.Reactors.Steps.RequestReview do
@@ -64,6 +72,8 @@ defmodule Deploy.Reactors.DeployPR do
     argument :repo, input(:repo)
     argument :pr_number, result(:create_deploy_pr, [:number])
     argument :reviewers, input(:reviewers)
+
+    max_retries 0
   end
 
   return :create_deploy_pr

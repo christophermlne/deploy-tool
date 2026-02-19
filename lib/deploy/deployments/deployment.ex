@@ -27,6 +27,11 @@ defmodule Deploy.Deployments.Deployment do
     field :started_at, :utc_datetime_usec
     field :completed_at, :utc_datetime_usec
 
+    # Validation skip options
+    field :skip_reviews, :boolean, default: false
+    field :skip_ci, :boolean, default: false
+    field :skip_conflicts, :boolean, default: false
+
     has_many :steps, Deploy.Deployments.DeploymentStep
     has_many :merged_prs, Deploy.Deployments.MergedPr
 
@@ -34,7 +39,7 @@ defmodule Deploy.Deployments.Deployment do
   end
 
   @required_fields ~w(deploy_date)a
-  @optional_fields ~w(pr_numbers status current_phase current_step error_message started_at completed_at)a
+  @optional_fields ~w(pr_numbers status current_phase current_step error_message started_at completed_at skip_reviews skip_ci skip_conflicts)a
 
   @doc """
   Creates a changeset for a deployment.

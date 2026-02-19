@@ -76,6 +76,8 @@ defmodule Deploy.Reactors.FullDeploy do
     argument :merged_prs, result(:merge_prs)
     argument :pr_number, result(:deploy_pr, [:number])
     argument :pr_url, result(:deploy_pr, [:url])
+
+    max_retries 0
   end
 
   return :result
