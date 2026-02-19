@@ -458,7 +458,7 @@ defmodule DeployWeb.CoreComponents do
         <%= for {pr_number, idx} <- Enum.with_index(@deployment.pr_numbers || []) do %><%= if idx > 0 do %>, <% end %><a href={pr_url(pr_number)} target="_blank" class="text-indigo-600 hover:underline">#<%= pr_number %></a><% end %>
       </td>
       <td class="px-6 py-4 whitespace-nowrap">
-        <.status_badge status={@deployment.status} />
+        <.deployment_status deployment={@deployment} />
       </td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         <%= Calendar.strftime(@deployment.inserted_at, "%Y-%m-%d %H:%M") %>
@@ -529,6 +529,87 @@ defmodule DeployWeb.CoreComponents do
       :cancelled -> {"Cancelled", "bg-gray-100 text-gray-800"}
       :skipped -> {"Skipped", "bg-gray-100 text-gray-600"}
       _ -> {"Unknown", "bg-gray-100 text-gray-800"}
+    end
+  end
+
+  @doc """
+  Renders a deployment status showing the last step executed and its outcome.
+
+  For completed/failed deployments, shows the step name with a success/fail indicator.
+  For in_progress/pending/cancelled deployments, shows a standard status badge.
+
+  Requires the deployment to have steps preloaded.
+
+  ## Examples
+
+      <.deployment_status deployment={@deployment} />
+      <.deployment_status deployment={@deployment} class="text-sm" />
+  """
+  attr :deployment, :map, required: true
+  attr :class, :string, default: nil
+
+  def deployment_status(assigns) do
+    case last_step_info(assigns.deployment) do
+      {step_name, :completed} ->
+        assigns = assign(assigns, step_name: step_name)
+
+        ~H"""
+        <span class={["px-2 inline-flex font-semibold rounded-full bg-green-100 text-green-800", @class || "text-xs leading-5"]}>
+          <%= @step_name %> ✓
+        </span>
+        """
+
+      {step_name, :failed} ->
+        assigns = assign(assigns, step_name: step_name)
+
+        ~H"""
+        <span class={["px-2 inline-flex font-semibold rounded-full bg-red-100 text-red-800", @class || "text-xs leading-5"]}>
+          <%= @step_name %> ✗
+        </span>
+        """
+
+      nil ->
+        # Fallback to standard status badge for pending/in_progress/cancelled
+        ~H"""
+        <.status_badge status={@deployment.status} class={@class} />
+        """
+    end
+  end
+
+  @doc """
+  Returns the last executed step info for a deployment.
+
+  Returns `{step_name, status}` where status is `:completed` or `:failed`,
+  or `nil` if the deployment is pending/in_progress/cancelled.
+
+  Requires the deployment to have steps preloaded. Returns `nil` if steps
+  are not loaded.
+  """
+  def last_step_info(deployment) do
+    steps =
+      case Map.get(deployment, :steps) do
+        %Ecto.Association.NotLoaded{} -> []
+        nil -> []
+        loaded -> loaded
+      end
+
+    cond do
+      deployment.status == :completed ->
+        # Find the last completed step (by completed_at timestamp)
+        last_completed =
+          steps
+          |> Enum.filter(&(&1.status == :completed && &1.completed_at != nil))
+          |> Enum.max_by(& &1.completed_at, DateTime, fn -> nil end)
+
+        if last_completed, do: {last_completed.step_name, :completed}, else: nil
+
+      deployment.status == :failed ->
+        # Find the failed step
+        failed_step = Enum.find(steps, &(&1.status == :failed))
+        if failed_step, do: {failed_step.step_name, :failed}, else: nil
+
+      true ->
+        nil
     end
   end
 

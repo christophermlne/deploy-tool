@@ -106,6 +106,7 @@ defmodule Deploy.Deployments do
   ## Options
     - `:status` - filter by status
     - `:limit` - limit number of results
+    - `:preload` - list of associations to preload (e.g., `[:steps]`)
   """
   @spec list_deployments(keyword()) :: [Deployment.t()]
   def list_deployments(opts \\ []) do
@@ -114,6 +115,7 @@ defmodule Deploy.Deployments do
     |> order_by(desc: :inserted_at)
     |> maybe_limit(opts[:limit])
     |> Repo.all()
+    |> maybe_preload(opts[:preload])
   end
 
   @doc """
@@ -239,4 +241,8 @@ defmodule Deploy.Deployments do
 
   defp maybe_limit(query, nil), do: query
   defp maybe_limit(query, limit), do: limit(query, ^limit)
+
+  defp maybe_preload(deployments, nil), do: deployments
+  defp maybe_preload(deployments, []), do: deployments
+  defp maybe_preload(deployments, preloads), do: Repo.preload(deployments, preloads)
 end

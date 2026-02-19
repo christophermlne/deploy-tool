@@ -70,7 +70,7 @@ defmodule Deploy.Reactors.FullDeploy do
   end
 
   # Aggregate final result
-  step :result, Deploy.Reactors.Steps.ReturnMap do
+  step :deploy_pr_prepared, Deploy.Reactors.Steps.ReturnMap do
     argument :branch, result(:setup, [:branch])
     argument :workspace, result(:setup, [:workspace])
     argument :merged_prs, result(:merge_prs)
@@ -80,5 +80,5 @@ defmodule Deploy.Reactors.FullDeploy do
     max_retries 0
   end
 
-  return :result
+  return :deploy_pr_prepared
 end
