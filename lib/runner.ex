@@ -543,9 +543,20 @@ defmodule Deploy.Runner do
   # when available. This enables the EventBroadcaster middleware to
   # track step progress.
   defp build_reactor_context(opts, phase) do
-    case Keyword.get(opts, :deployment_id) do
-      nil -> %{current_phase: phase}
-      deployment_id -> %{deployment_id: deployment_id, current_phase: phase}
+    base = %{current_phase: phase}
+
+    base =
+      case Keyword.get(opts, :deployment_id) do
+        nil -> base
+        deployment_id -> Map.put(base, :deployment_id, deployment_id)
+      end
+
+    # Add step mapping for phase lookup when running full deploy
+    if phase == "full_deploy" do
+      step_mapping = Deploy.Reactors.StepMapper.build_step_mapping(FullDeploy)
+      Map.put(base, :step_to_phase, step_mapping)
+    else
+      base
     end
   end
 end

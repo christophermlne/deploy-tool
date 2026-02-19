@@ -173,27 +173,25 @@ defmodule DeployWeb.DeploymentShowLive do
     end
   end
 
+  # Phase order derived from reactor composition
+  @phase_order Deploy.Reactors.StepMapper.get_phase_order(Deploy.Reactors.FullDeploy)
+
   defp group_steps_by_phase(steps) do
     steps
     |> Enum.group_by(& &1.phase)
     |> Enum.sort_by(fn {phase, _} ->
-      # Order phases: setup -> merge_prs -> deploy_pr
-      case phase do
-        "setup" -> 0
-        "merge_prs" -> 1
-        "deploy_pr" -> 2
-        _ -> 3
-      end
+      Enum.find_index(@phase_order, &(&1 == phase)) || 999
     end)
   end
 
   defp phase_display_name(phase) do
-    case phase do
-      "setup" -> "Setup"
-      "merge_prs" -> "Merge PRs"
-      "deploy_pr" -> "Create Deploy PR"
-      other -> String.capitalize(other)
-    end
+    phase
+    |> String.replace("_", " ")
+    |> String.split()
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+    |> String.replace(" Pr", " PR")
+    |> String.replace(" Prs", " PRs")
   end
 
   defp phase_status(steps) do

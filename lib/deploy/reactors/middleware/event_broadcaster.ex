@@ -48,9 +48,9 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
 
   @impl true
   def event({:run_start, _arguments}, step, context) do
-    with {:ok, deployment_id, phase} <- extract_context(context) do
-      step_name = step_name_to_string(step.name)
+    step_name = step_name_to_string(step.name)
 
+    with {:ok, deployment_id, phase} <- extract_context(context, step_name) do
       # Create or update step record
       ensure_step_record(deployment_id, phase, step_name)
 
@@ -67,9 +67,9 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
   end
 
   def event({:run_complete, result}, step, context) do
-    with {:ok, deployment_id, phase} <- extract_context(context) do
-      step_name = step_name_to_string(step.name)
+    step_name = step_name_to_string(step.name)
 
+    with {:ok, deployment_id, phase} <- extract_context(context, step_name) do
       # Update step record
       complete_step_record(deployment_id, phase, step_name, result)
 
@@ -86,8 +86,9 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
   end
 
   def event({:run_error, errors}, step, context) do
-    with {:ok, deployment_id, phase} <- extract_context(context) do
-      step_name = step_name_to_string(step.name)
+    step_name = step_name_to_string(step.name)
+
+    with {:ok, deployment_id, phase} <- extract_context(context, step_name) do
       error_message = format_errors(errors)
 
       # Update step record
@@ -107,7 +108,7 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
 
   @impl true
   def complete(result, context) do
-    with {:ok, deployment_id, phase} <- extract_context(context) do
+    with {:ok, deployment_id, phase} <- extract_phase_context(context) do
       Events.broadcast_phase_completed(deployment_id, phase)
     end
 
@@ -116,7 +117,7 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
 
   @impl true
   def error(errors, context) do
-    with {:ok, deployment_id, phase} <- extract_context(context) do
+    with {:ok, deployment_id, phase} <- extract_phase_context(context) do
       Logger.error("Phase #{phase} failed for deployment #{deployment_id}: #{inspect(errors)}")
     end
 
@@ -127,7 +128,29 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
   # Private Helpers
   # ============================================================================
 
-  defp extract_context(context) do
+  # Extract context with step-to-phase mapping lookup
+  defp extract_context(context, step_name) do
+    case {Map.get(context, :deployment_id), Map.get(context, :current_phase)} do
+      {nil, _} ->
+        :skip
+
+      {_, nil} ->
+        :skip
+
+      {deployment_id, current_phase} ->
+        # Look up the actual phase from step mapping if available
+        phase =
+          case Map.get(context, :step_to_phase) do
+            nil -> current_phase
+            mapping -> Map.get(mapping, step_name, current_phase)
+          end
+
+        {:ok, deployment_id, phase}
+    end
+  end
+
+  # Extract context for phase-level callbacks (no step mapping lookup)
+  defp extract_phase_context(context) do
     case {Map.get(context, :deployment_id), Map.get(context, :current_phase)} do
       {nil, _} -> :skip
       {_, nil} -> :skip
