@@ -214,4 +214,10 @@ defmodule DeployWeb.DeploymentShowLive do
       true -> :pending
     end
   end
+
+  defp pr_url(pr_number) do
+    owner = Deploy.Config.github_owner()
+    repo = Deploy.Config.github_repo()
+    "https://github.com/#{owner}/#{repo}/pull/#{pr_number}"
+  end
 end

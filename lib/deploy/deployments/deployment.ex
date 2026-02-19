@@ -32,6 +32,10 @@ defmodule Deploy.Deployments.Deployment do
     field :skip_ci, :boolean, default: false
     field :skip_conflicts, :boolean, default: false
 
+    # Deploy PR info (populated on completion)
+    field :deploy_pr_number, :integer
+    field :deploy_pr_url, :string
+
     has_many :steps, Deploy.Deployments.DeploymentStep
     has_many :merged_prs, Deploy.Deployments.MergedPr
 
@@ -39,7 +43,7 @@ defmodule Deploy.Deployments.Deployment do
   end
 
   @required_fields ~w(deploy_date)a
-  @optional_fields ~w(pr_numbers status current_phase current_step error_message started_at completed_at skip_reviews skip_ci skip_conflicts)a
+  @optional_fields ~w(pr_numbers status current_phase current_step error_message started_at completed_at skip_reviews skip_ci skip_conflicts deploy_pr_number deploy_pr_url)a
 
   @doc """
   Creates a changeset for a deployment.
