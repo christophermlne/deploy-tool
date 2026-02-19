@@ -250,13 +250,9 @@ defmodule Deploy.Reactors.Middleware.EventBroadcaster do
 
   defp format_errors(errors) when is_list(errors) do
     errors
-    |> Enum.map(&format_single_error/1)
+    |> Enum.map(&Deploy.ErrorFormatter.format/1)
     |> Enum.join("; ")
   end
 
-  defp format_errors(error), do: format_single_error(error)
-
-  defp format_single_error(%{message: message}), do: message
-  defp format_single_error(error) when is_binary(error), do: error
-  defp format_single_error(error), do: inspect(error)
+  defp format_errors(error), do: Deploy.ErrorFormatter.format(error)
 end

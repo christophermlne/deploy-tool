@@ -252,6 +252,5 @@ defmodule Deploy.Deployments.Runner do
     Deploy.Runner.deploy_pr(opts)
   end
 
-  defp format_error(error) when is_binary(error), do: error
-  defp format_error(error), do: inspect(error)
+  defp format_error(error), do: Deploy.ErrorFormatter.format(error)
 end

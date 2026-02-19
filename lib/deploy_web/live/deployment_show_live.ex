@@ -156,9 +156,7 @@ defmodule DeployWeb.DeploymentShowLive do
     end)
   end
 
-  defp format_error(error) when is_binary(error), do: error
-  defp format_error(:cancelled), do: "Deployment was cancelled"
-  defp format_error(error), do: inspect(error)
+  defp format_error(error), do: Deploy.ErrorFormatter.format(error)
 
   defp step_status_icon(status) do
     case status do
