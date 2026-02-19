@@ -122,4 +122,10 @@ defmodule DeployWeb.DeploymentListLive do
     minutes = div(rem(seconds, 3600), 60)
     "#{hours}h #{minutes}m"
   end
+
+  defp pr_url(pr_number) do
+    owner = Deploy.Config.github_owner()
+    repo = Deploy.Config.github_repo()
+    "https://github.com/#{owner}/#{repo}/pull/#{pr_number}"
+  end
 end

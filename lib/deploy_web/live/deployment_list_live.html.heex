@@ -60,6 +60,9 @@
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Duration
             </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Deploy PR
+            </th>
             <th scope="col" class="relative px-6 py-3">
               <span class="sr-only">Actions</span>
             </th>
@@ -75,7 +78,7 @@
                 <%= deployment.deploy_date %>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <%= Enum.join(deployment.pr_numbers || [], ", ") %>
+                <%= for {pr_number, idx} <- Enum.with_index(deployment.pr_numbers || []) do %><%= if idx > 0 do %>, <% end %><a href={pr_url(pr_number)} target="_blank" class="text-indigo-600 hover:underline">#<%= pr_number %></a><% end %>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <% {label, classes} = status_badge(deployment.status) %>
@@ -88,6 +91,15 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <%= format_duration(deployment) %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <%= if deployment.deploy_pr_url do %>
+                  <a href={deployment.deploy_pr_url} target="_blank" class="text-indigo-600 hover:underline">
+                    #<%= deployment.deploy_pr_number %>
+                  </a>
+                <% else %>
+                  <span class="text-gray-400">-</span>
+                <% end %>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <.link
