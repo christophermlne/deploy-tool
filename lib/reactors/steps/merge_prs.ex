@@ -10,11 +10,7 @@ defmodule Deploy.Reactors.Steps.MergePRs do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    client = arguments.client
-    owner = arguments.owner
-    repo = arguments.repo
-    prs = arguments.prs
+  def run(%{client: client, owner: owner, repo: repo, prs: prs} = arguments, _context, _options) do
     skip_conflicts = Map.get(arguments, :skip_conflicts, false)
 
     prs

@@ -8,13 +8,7 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescription do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    client = arguments.client
-    owner = arguments.owner
-    repo = arguments.repo
-    pr_number = arguments.pr_number
-    merged_prs = arguments.merged_prs
-    deploy_branch = arguments.deploy_branch
+  def run(%{client: client, owner: owner, repo: repo, pr_number: pr_number, merged_prs: merged_prs, deploy_branch: deploy_branch}, _context, _options) do
 
     body = build_description(deploy_branch, merged_prs)
 

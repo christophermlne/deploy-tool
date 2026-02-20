@@ -10,11 +10,7 @@ defmodule Deploy.Reactors.Steps.CreateDeployPR do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    client = arguments.client
-    owner = arguments.owner
-    repo = arguments.repo
-    deploy_branch = arguments.deploy_branch
+  def run(%{client: client, owner: owner, repo: repo, deploy_branch: deploy_branch}, _context, _options) do
 
     title = format_title(deploy_branch)
 

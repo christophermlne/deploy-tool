@@ -13,10 +13,7 @@ defmodule Deploy.Reactors.Steps.CloneRepo do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    workspace = arguments.workspace
-    repo_url = arguments.repo_url
-    token = arguments.github_token
+  def run(%{workspace: workspace, repo_url: repo_url, github_token: token}, _context, _options) do
 
     # Inject token into URL for authentication
     # Converts https://github.com/org/repo.git to https://token@github.com/org/repo.git

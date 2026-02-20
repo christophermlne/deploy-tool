@@ -19,8 +19,7 @@ defmodule Deploy.Reactors.Steps.BumpVersionFiles do
   @package_json "frontend/package.json"
 
   @impl true
-  def run(arguments, _context, _options) do
-    workspace = arguments.workspace
+  def run(%{workspace: workspace}, _context, _options) do
 
     # Read current version from canonical source
     version_file = Path.join(workspace, "version.txt")

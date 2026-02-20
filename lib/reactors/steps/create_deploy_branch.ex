@@ -13,10 +13,7 @@ defmodule Deploy.Reactors.Steps.CreateDeployBranch do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    workspace = arguments.workspace
-    deploy_date = arguments.deploy_date
-    base_branch = arguments.base_branch
+  def run(%{workspace: workspace, deploy_date: deploy_date, base_branch: base_branch}, _context, _options) do
 
     branch_name = "deploy-#{deploy_date}"
 

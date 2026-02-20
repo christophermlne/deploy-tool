@@ -14,9 +14,7 @@ defmodule Deploy.Reactors.Steps.CommitVersionBump do
   @version_files ["version.txt", "backend/version.txt", "frontend/package.json"]
 
   @impl true
-  def run(arguments, _context, _options) do
-    workspace = arguments.workspace
-    new_version = arguments.new_version
+  def run(%{workspace: workspace, new_version: new_version}, _context, _options) do
 
     Logger.info("Committing version bump to #{new_version}")
 

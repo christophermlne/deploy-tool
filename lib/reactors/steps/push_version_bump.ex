@@ -12,9 +12,7 @@ defmodule Deploy.Reactors.Steps.PushVersionBump do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    workspace = arguments.workspace
-    deploy_branch = arguments.deploy_branch
+  def run(%{workspace: workspace, deploy_branch: deploy_branch}, _context, _options) do
 
     Logger.info("Pushing version bump to #{deploy_branch}")
 

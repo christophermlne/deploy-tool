@@ -10,12 +10,7 @@ defmodule Deploy.Reactors.Steps.ChangePRBases do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    client = arguments.client
-    owner = arguments.owner
-    repo = arguments.repo
-    prs = arguments.prs
-    deploy_branch = arguments.deploy_branch
+  def run(%{client: client, owner: owner, repo: repo, prs: prs, deploy_branch: deploy_branch}, _context, _options) do
 
     prs
     |> Enum.reduce_while({:ok, []}, fn pr, {:ok, acc} ->

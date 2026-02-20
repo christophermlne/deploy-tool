@@ -11,9 +11,7 @@ defmodule Deploy.Reactors.Steps.GitPush do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    workspace = arguments.workspace
-    branch = arguments.branch
+  def run(%{workspace: workspace, branch: branch}, _context, _options) do
 
     Logger.info("Pushing branch #{branch} to origin")
 
