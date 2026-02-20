@@ -12,6 +12,27 @@ services:
     volumes:
       - db_data:/app/data
     command: mix phx.server
+    develop:
+      watch:
+        - action: sync
+          path: ./lib
+          target: /app/lib
+        - action: sync
+          path: ./assets
+          target: /app/assets
+        - action: sync
+          path: ./priv
+          target: /app/priv
+        - action: sync
+          path: ./test
+          target: /app/test
+        - action: sync+restart
+          path: ./config
+          target: /app/config
+        - action: rebuild
+          path: ./mix.exs
+        - action: rebuild
+          path: ./mix.lock
 
 volumes:
   db_data:
