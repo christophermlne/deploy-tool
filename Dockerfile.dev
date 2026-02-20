@@ -5,7 +5,9 @@
 FROM elixir:1.17-alpine
 
 # Install git (required for repo operations)
-RUN apk add --no-cache git build-base
+RUN apk add --no-cache git build-base && \
+    git config --global user.email "deploy-tool@localhost" && \
+    git config --global user.name "Deploy Tool"
 
 WORKDIR /app
 
