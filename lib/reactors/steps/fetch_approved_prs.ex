@@ -11,17 +11,12 @@ defmodule Deploy.Reactors.Steps.FetchApprovedPRs do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    client = arguments.client
-    owner = arguments.owner
-    repo = arguments.repo
-    pr_numbers = arguments.pr_numbers
+  def run(%{pr_numbers: [_ | _] = pr_numbers, client: client, owner: owner, repo: repo}, _context, _options) do
+    fetch_specific_prs(client, owner, repo, pr_numbers)
+  end
 
-    if pr_numbers != [] do
-      fetch_specific_prs(client, owner, repo, pr_numbers)
-    else
-      discover_approved_prs(client, owner, repo)
-    end
+  def run(%{client: client, owner: owner, repo: repo}, _context, _options) do
+    discover_approved_prs(client, owner, repo)
   end
 
   defp fetch_specific_prs(client, owner, repo, pr_numbers) do

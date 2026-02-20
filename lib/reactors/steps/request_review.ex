@@ -8,19 +8,10 @@ defmodule Deploy.Reactors.Steps.RequestReview do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    reviewers = arguments.reviewers
+  def run(%{reviewers: []}, _context, _options), do: {:ok, :skipped}
 
-    if reviewers == [] do
-      {:ok, :skipped}
-    else
-      client = arguments.client
-      owner = arguments.owner
-      repo = arguments.repo
-      pr_number = arguments.pr_number
-
-      Deploy.GitHub.request_review(client, owner, repo, pr_number, reviewers)
-    end
+  def run(%{client: client, owner: owner, repo: repo, pr_number: pr_number, reviewers: reviewers}, _context, _options) do
+    Deploy.GitHub.request_review(client, owner, repo, pr_number, reviewers)
   end
 
 end

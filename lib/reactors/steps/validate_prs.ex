@@ -16,22 +16,16 @@ defmodule Deploy.Reactors.Steps.ValidatePRs do
   require Logger
 
   @impl true
-  def run(arguments, _context, _options) do
-    client = arguments.client
-    owner = arguments.owner
-    repo = arguments.repo
-    prs = arguments.prs
+  def run(%{skip_validation: true, prs: prs}, _context, _options) do
+    Logger.info("Skipping all PR validation (skip_validation: true)")
+    {:ok, prs}
+  end
 
-    skip_validation = Map.get(arguments, :skip_validation, false)
+  def run(%{client: client, owner: owner, repo: repo, prs: prs} = arguments, _context, _options) do
     skip_reviews = Map.get(arguments, :skip_reviews, false)
     skip_ci = Map.get(arguments, :skip_ci, false)
 
-    if skip_validation do
-      Logger.info("Skipping all PR validation (skip_validation: true)")
-      {:ok, prs}
-    else
-      validate_all_prs(client, owner, repo, prs, skip_reviews, skip_ci)
-    end
+    validate_all_prs(client, owner, repo, prs, skip_reviews, skip_ci)
   end
 
   defp validate_all_prs(client, owner, repo, prs, skip_reviews, skip_ci) do
@@ -43,19 +37,21 @@ defmodule Deploy.Reactors.Steps.ValidatePRs do
         {pr, reasons}
       end)
 
-    failures = Enum.filter(results, fn {_pr, reasons} -> reasons != [] end)
+    results
+    |> Enum.filter(fn {_pr, reasons} -> reasons != [] end)
+    |> case do
+      [] ->
+        Logger.info("All PRs passed validation")
+        {:ok, prs}
 
-    if failures == [] do
-      Logger.info("All PRs passed validation")
-      {:ok, prs}
-    else
-      failure_details =
-        Enum.map(failures, fn {pr, reasons} ->
-          %{number: pr.number, title: pr.title, reasons: reasons}
-        end)
+      failures ->
+        failure_details =
+          Enum.map(failures, fn {pr, reasons} ->
+            %{number: pr.number, title: pr.title, reasons: reasons}
+          end)
 
-      Logger.error("#{length(failures)} PRs failed validation: #{inspect(failure_details)}")
-      {:error, %{validation_failures: failure_details}}
+        Logger.error("#{length(failures)} PRs failed validation: #{inspect(failure_details)}")
+        {:error, %{validation_failures: failure_details}}
     end
   end
 
