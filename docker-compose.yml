@@ -10,7 +10,7 @@ services:
       - DEPLOY_REPO_URL=${DEPLOY_REPO_URL}
       - DATABASE_PATH=/app/data/deploy.db
     volumes:
-      - db_data:/app/data
+      - ./data:/app/data
     command: mix phx.server
     develop:
       watch:
@@ -33,6 +33,3 @@ services:
           path: ./mix.exs
         - action: rebuild
           path: ./mix.lock
-
-volumes:
-  db_data:
