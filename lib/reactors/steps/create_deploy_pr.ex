@@ -25,12 +25,8 @@ defmodule Deploy.Reactors.Steps.CreateDeployPR do
       body: ""
     }
 
-    case Deploy.GitHub.create_pr(client, owner, repo, attrs) do
-      {:ok, body} ->
-        {:ok, %{number: body["number"], url: body["html_url"]}}
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, body} <- Deploy.GitHub.create_pr(client, owner, repo, attrs) do
+      {:ok, %{number: body["number"], url: body["html_url"]}}
     end
   end
 

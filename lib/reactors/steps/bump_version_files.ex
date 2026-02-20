@@ -31,8 +31,6 @@ defmodule Deploy.Reactors.Steps.BumpVersionFiles do
          :ok <- update_package_json(workspace, new_version) do
       Logger.info("Bumped version from #{current_version} to #{new_version}")
       {:ok, %{old_version: current_version, new_version: new_version}}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 

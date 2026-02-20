@@ -55,7 +55,6 @@ defmodule Deploy.Reactors.Setup do
     argument :workspace, result(:create_workspace)
     argument :branch, result(:create_deploy_branch)
 
-    wait_for :create_deploy_branch
     max_retries 0
   end
 
