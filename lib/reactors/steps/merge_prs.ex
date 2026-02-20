@@ -17,7 +17,8 @@ defmodule Deploy.Reactors.Steps.MergePRs do
     prs = arguments.prs
     skip_conflicts = Map.get(arguments, :skip_conflicts, false)
 
-    Enum.reduce_while(prs, {:ok, []}, fn pr, {:ok, acc} ->
+    prs
+    |> Enum.reduce_while({:ok, []}, fn pr, {:ok, acc} ->
       with :ok <- maybe_update_branch(client, owner, repo, pr.number, acc),
            :ok <- check_mergeable(client, owner, repo, pr.number, skip_conflicts),
            {:ok, body} <- Deploy.GitHub.merge_pr(client, owner, repo, pr.number) do
@@ -28,11 +29,15 @@ defmodule Deploy.Reactors.Steps.MergePRs do
         }
 
         Logger.info("Merged PR ##{pr.number}: #{pr.title}")
-        {:cont, {:ok, acc ++ [merged]}}
+        {:cont, {:ok, [merged | acc]}}
       else
         {:error, reason} ->
           {:halt, {:error, "Failed to merge PR ##{pr.number}: #{inspect(reason)}"}}
       end
+    end)
+    |> then(fn
+      {:ok, merged} -> {:ok, Enum.reverse(merged)}
+      error -> error
     end)
   end
 

@@ -25,11 +25,16 @@ defmodule Deploy.Reactors.Steps.FetchApprovedPRs do
   end
 
   defp fetch_specific_prs(client, owner, repo, pr_numbers) do
-    Enum.reduce_while(pr_numbers, {:ok, []}, fn number, {:ok, acc} ->
+    pr_numbers
+    |> Enum.reduce_while({:ok, []}, fn number, {:ok, acc} ->
       case Deploy.GitHub.get_pr(client, owner, repo, number) do
-        {:ok, pr} -> {:cont, {:ok, acc ++ [normalize_pr(pr)]}}
+        {:ok, pr} -> {:cont, {:ok, [normalize_pr(pr) | acc]}}
         {:error, reason} -> {:halt, {:error, "Failed to fetch PR ##{number}: #{inspect(reason)}"}}
       end
+    end)
+    |> then(fn
+      {:ok, prs} -> {:ok, Enum.reverse(prs)}
+      error -> error
     end)
   end
 

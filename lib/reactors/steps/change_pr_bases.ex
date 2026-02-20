@@ -17,15 +17,20 @@ defmodule Deploy.Reactors.Steps.ChangePRBases do
     prs = arguments.prs
     deploy_branch = arguments.deploy_branch
 
-    Enum.reduce_while(prs, {:ok, []}, fn pr, {:ok, acc} ->
+    prs
+    |> Enum.reduce_while({:ok, []}, fn pr, {:ok, acc} ->
       case Deploy.GitHub.change_pr_base(client, owner, repo, pr.number, deploy_branch) do
         {:ok, _} ->
           Logger.info("Retargeted PR ##{pr.number} to #{deploy_branch}")
-          {:cont, {:ok, acc ++ [pr]}}
+          {:cont, {:ok, [pr | acc]}}
 
         {:error, reason} ->
           {:halt, {:error, "Failed to change base for PR ##{pr.number}: #{inspect(reason)}"}}
       end
+    end)
+    |> then(fn
+      {:ok, changed} -> {:ok, Enum.reverse(changed)}
+      error -> error
     end)
   end
 
