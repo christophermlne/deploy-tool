@@ -21,7 +21,7 @@ defmodule Deploy.Reactors.Steps.GitPushTest do
 
       args = %{workspace: "/tmp/ws", branch: "deploy-20260201"}
       assert {:error, msg} = Deploy.Reactors.Steps.GitPush.run(args, %{}, [])
-      assert msg =~ "Git push failed"
+      assert msg =~ "git push failed"
     end
   end
 

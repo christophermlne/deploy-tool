@@ -18,12 +18,8 @@ defmodule Deploy.Reactors.Steps.PushVersionBump do
 
     Logger.info("Pushing version bump to #{deploy_branch}")
 
-    case Deploy.Git.cmd(["push", "origin", deploy_branch], cd: workspace, stderr_to_stdout: true) do
-      {_output, 0} ->
-        {:ok, deploy_branch}
-
-      {output, exit_code} ->
-        {:error, "Git push failed (exit #{exit_code}): #{output}"}
+    with :ok <- Deploy.Git.run!(["push", "origin", deploy_branch], cd: workspace, stderr_to_stdout: true) do
+      {:ok, deploy_branch}
     end
   end
 

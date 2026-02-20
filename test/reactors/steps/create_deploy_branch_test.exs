@@ -20,7 +20,7 @@ defmodule Deploy.Reactors.Steps.CreateDeployBranchTest do
 
       args = %{workspace: "/tmp/ws", deploy_date: "20260201", base_branch: "staging"}
       assert {:error, msg} = Deploy.Reactors.Steps.CreateDeployBranch.run(args, %{}, [])
-      assert msg =~ "Failed to create deploy branch"
+      assert msg =~ "git checkout failed"
     end
   end
 

@@ -23,7 +23,7 @@ defmodule Deploy.Reactors.Steps.PushVersionBumpTest do
 
       args = %{workspace: "/tmp/ws", deploy_branch: "deploy-20260201"}
       assert {:error, msg} = PushVersionBump.run(args, %{}, [])
-      assert msg =~ "Git push failed"
+      assert msg =~ "git push failed"
     end
   end
 

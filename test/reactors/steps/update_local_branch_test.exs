@@ -29,6 +29,6 @@ defmodule Deploy.Reactors.Steps.UpdateLocalBranchTest do
     assert {:error, msg} =
              Deploy.Reactors.Steps.UpdateLocalBranch.run(arguments, %{}, [])
 
-    assert msg =~ "Git pull failed"
+    assert msg =~ "git pull failed"
   end
 end

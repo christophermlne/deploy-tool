@@ -22,14 +22,9 @@ defmodule Deploy.Reactors.Steps.CreateDeployBranch do
 
     Logger.info("Creating deploy branch: #{branch_name} from #{base_branch}")
 
-    # First, ensure we're on the base branch
-    with {_, 0} <- Deploy.Git.cmd(["checkout", base_branch], cd: workspace, stderr_to_stdout: true),
-         # Create and checkout the new deploy branch
-         {_, 0} <- Deploy.Git.cmd(["checkout", "-b", branch_name], cd: workspace, stderr_to_stdout: true) do
+    with :ok <- Deploy.Git.run!(["checkout", base_branch], cd: workspace, stderr_to_stdout: true),
+         :ok <- Deploy.Git.run!(["checkout", "-b", branch_name], cd: workspace, stderr_to_stdout: true) do
       {:ok, branch_name}
-    else
-      {output, exit_code} ->
-        {:error, "Failed to create deploy branch (exit #{exit_code}): #{output}"}
     end
   end
 

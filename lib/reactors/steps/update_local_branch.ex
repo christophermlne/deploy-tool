@@ -14,12 +14,8 @@ defmodule Deploy.Reactors.Steps.UpdateLocalBranch do
 
     Logger.info("Pulling latest changes for #{branch}")
 
-    case Deploy.Git.cmd(["pull", "origin", branch], cd: workspace, stderr_to_stdout: true) do
-      {_output, 0} ->
-        {:ok, workspace}
-
-      {output, exit_code} ->
-        {:error, "Git pull failed (exit #{exit_code}): #{output}"}
+    with :ok <- Deploy.Git.run!(["pull", "origin", branch], cd: workspace, stderr_to_stdout: true) do
+      {:ok, workspace}
     end
   end
 

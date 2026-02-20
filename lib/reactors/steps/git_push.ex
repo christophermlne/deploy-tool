@@ -17,12 +17,8 @@ defmodule Deploy.Reactors.Steps.GitPush do
 
     Logger.info("Pushing branch #{branch} to origin")
 
-    case Deploy.Git.cmd(["push", "-u", "origin", branch], cd: workspace, stderr_to_stdout: true) do
-      {_output, 0} ->
-        {:ok, branch}
-
-      {output, exit_code} ->
-        {:error, "Git push failed (exit #{exit_code}): #{output}"}
+    with :ok <- Deploy.Git.run!(["push", "-u", "origin", branch], cd: workspace, stderr_to_stdout: true) do
+      {:ok, branch}
     end
   end
 
