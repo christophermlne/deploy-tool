@@ -92,17 +92,20 @@ defmodule DeployWeb.DeploymentShowLive do
 
   @impl true
   def handle_info({:step_started, _id, phase, step_name}, socket) do
-    steps = update_step_status(socket.assigns.steps, phase, step_name, :in_progress)
+    now = DateTime.utc_now()
+    steps = update_step_status(socket.assigns.steps, phase, step_name, :in_progress, %{started_at: now})
     {:noreply, assign(socket, steps: steps)}
   end
 
   def handle_info({:step_completed, _id, phase, step_name, _result}, socket) do
-    steps = update_step_status(socket.assigns.steps, phase, step_name, :completed)
+    now = DateTime.utc_now()
+    steps = update_step_status(socket.assigns.steps, phase, step_name, :completed, %{completed_at: now})
     {:noreply, assign(socket, steps: steps)}
   end
 
   def handle_info({:step_failed, _id, phase, step_name, error}, socket) do
-    steps = update_step_status(socket.assigns.steps, phase, step_name, :failed)
+    now = DateTime.utc_now()
+    steps = update_step_status(socket.assigns.steps, phase, step_name, :failed, %{completed_at: now})
     {:noreply, assign(socket, steps: steps, error: format_error(error))}
   end
 
@@ -139,17 +142,25 @@ defmodule DeployWeb.DeploymentShowLive do
   end
 
   def handle_info({:deployment_started, _id}, socket) do
-    {:noreply, assign(socket, is_active: true)}
+    deployment = Deployments.get_deployment!(socket.assigns.deployment.id)
+    deployment = Deployments.load_deployment_with_assocs(deployment)
+
+    {:noreply,
+     assign(socket,
+       deployment: deployment,
+       steps: deployment.steps,
+       is_active: true
+     )}
   end
 
   def handle_info({:phase_started, _id, _phase}, socket), do: {:noreply, socket}
   def handle_info({:phase_completed, _id, _phase}, socket), do: {:noreply, socket}
   def handle_info(_event, socket), do: {:noreply, socket}
 
-  defp update_step_status(steps, phase, step_name, status) do
+  defp update_step_status(steps, phase, step_name, status, extra \\ %{}) do
     Enum.map(steps, fn step ->
       if step.phase == phase and step.step_name == step_name do
-        %{step | status: status}
+        step |> Map.put(:status, status) |> Map.merge(extra)
       else
         step
       end

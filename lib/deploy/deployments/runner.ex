@@ -163,6 +163,13 @@ defmodule Deploy.Deployments.Runner do
   def handle_info(:start_deployment, state) do
     # Update deployment status
     {:ok, deployment} = Deployments.start_deployment(state.deployment)
+
+    # Pre-create all steps as pending so the UI can show them immediately
+    ordered_steps =
+      Deploy.Reactors.StepMapper.get_ordered_steps(Deploy.Reactors.FullDeploy)
+
+    Deployments.create_pending_steps(deployment, ordered_steps)
+
     Events.broadcast_deployment_started(state.deployment_id)
 
     # Build opts for Deploy.Runner with deployment_id for middleware

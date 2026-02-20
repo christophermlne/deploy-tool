@@ -131,6 +131,20 @@ defmodule Deploy.Deployments do
   # ============================================================================
 
   @doc """
+  Pre-creates all steps as `:pending` for a deployment.
+
+  Accepts an ordered list of `{phase, step_name}` tuples (from `StepMapper.get_ordered_steps/1`).
+  """
+  @spec create_pending_steps(Deployment.t(), [{String.t(), String.t()}]) :: :ok
+  def create_pending_steps(%Deployment{} = deployment, ordered_steps) do
+    for {phase, step_name} <- ordered_steps do
+      create_step(deployment, %{phase: phase, step_name: step_name, status: :pending})
+    end
+
+    :ok
+  end
+
+  @doc """
   Creates a step record for a deployment.
   """
   @spec create_step(Deployment.t(), map()) :: {:ok, DeploymentStep.t()} | {:error, Ecto.Changeset.t()}

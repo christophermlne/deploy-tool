@@ -55,6 +55,36 @@ defmodule Deploy.Reactors.StepMapper do
     |> Enum.map(&Atom.to_string(&1.name))
   end
 
+  @doc """
+  Returns an ordered list of `{phase_name, step_name}` tuples for a reactor.
+
+  Preserves definition order within each phase, which corresponds to
+  execution order for these sequential reactors.
+
+  ## Example
+
+      iex> StepMapper.get_ordered_steps(Deploy.Reactors.FullDeploy)
+      [
+        {"setup", "create_workspace"},
+        {"setup", "clone_repo"},
+        ...
+        {"deploy_pr", "request_review"}
+      ]
+  """
+  @spec get_ordered_steps(module()) :: [{String.t(), String.t()}]
+  def get_ordered_steps(reactor_module) do
+    config = reactor_module.spark_dsl_config()
+    entities = get_in(config, [[:reactor], :entities]) || []
+
+    entities
+    |> Enum.filter(&match?(%{__struct__: Reactor.Dsl.Compose}, &1))
+    |> Enum.flat_map(fn compose ->
+      phase_name = Atom.to_string(compose.name)
+      steps = get_reactor_steps(compose.reactor)
+      Enum.map(steps, fn step_name -> {phase_name, step_name} end)
+    end)
+  end
+
   defp get_reactor_steps(reactor_module) do
     config = reactor_module.spark_dsl_config()
     entities = get_in(config, [[:reactor], :entities]) || []
