@@ -26,7 +26,7 @@ defmodule Deploy.Reactors.Steps.GitFetchTest do
 
       args = %{workspace: "/tmp/ws", branch: "staging"}
       assert {:error, msg} = Deploy.Reactors.Steps.GitFetch.run(args, %{}, [])
-      assert msg =~ "Git fetch failed"
+      assert msg =~ "git fetch failed"
     end
 
     test "returns error when reset fails" do
@@ -36,7 +36,7 @@ defmodule Deploy.Reactors.Steps.GitFetchTest do
 
       args = %{workspace: "/tmp/ws", branch: "staging"}
       assert {:error, msg} = Deploy.Reactors.Steps.GitFetch.run(args, %{}, [])
-      assert msg =~ "Git reset failed"
+      assert msg =~ "git reset failed"
     end
   end
 end

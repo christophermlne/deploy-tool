@@ -17,20 +17,11 @@ defmodule Deploy.Reactors.Steps.GitFetch do
 
     Logger.info("Fetching latest #{branch} branch")
 
-    # Fetch the specific branch
-    case Deploy.Git.cmd(["fetch", "origin", branch], cd: workspace, stderr_to_stdout: true) do
-      {_output, 0} ->
-        # Reset to the fetched branch to ensure we're at the latest
-        case Deploy.Git.cmd(["reset", "--hard", "origin/#{branch}"], cd: workspace, stderr_to_stdout: true) do
-          {_output, 0} ->
-            {:ok, branch}
+    opts = [cd: workspace, stderr_to_stdout: true]
 
-          {output, exit_code} ->
-            {:error, "Git reset failed (exit #{exit_code}): #{output}"}
-        end
-
-      {output, exit_code} ->
-        {:error, "Git fetch failed (exit #{exit_code}): #{output}"}
+    with :ok <- Deploy.Git.run!(["fetch", "origin", branch], opts),
+         :ok <- Deploy.Git.run!(["reset", "--hard", "origin/#{branch}"], opts) do
+      {:ok, branch}
     end
   end
 
