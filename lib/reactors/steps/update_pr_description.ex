@@ -21,9 +21,6 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescription do
     Deploy.GitHub.update_pr(client, owner, repo, pr_number, %{body: body})
   end
 
-  @impl true
-  def compensate(_result, _arguments, _context, _options), do: :ok
-
   defp build_description(_deploy_branch, merged_prs) do
     merged_prs
     |> Enum.map(&"##{&1.number}")

@@ -34,9 +34,4 @@ defmodule Deploy.Reactors.Steps.GitFetch do
     end
   end
 
-  @impl true
-  def compensate(_result, _arguments, _context, _options) do
-    # Nothing to compensate—this is a read operation
-    :ok
-  end
 end

@@ -41,12 +41,6 @@ defmodule Deploy.Reactors.Steps.CloneRepo do
     end
   end
 
-  @impl true
-  def compensate(_result, _arguments, _context, _options) do
-    # Workspace cleanup is handled by CreateWorkspace compensation
-    :ok
-  end
-
   defp inject_token(url, token) do
     url
     |> URI.parse()

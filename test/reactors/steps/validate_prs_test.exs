@@ -248,9 +248,4 @@ defmodule Deploy.Reactors.Steps.ValidatePRsTest do
     end
   end
 
-  describe "compensation" do
-    test "compensate is a no-op" do
-      assert :ok = ValidatePRs.compensate(nil, %{}, %{}, [])
-    end
-  end
 end

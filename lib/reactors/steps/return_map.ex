@@ -11,6 +11,4 @@ defmodule Deploy.Reactors.Steps.ReturnMap do
     {:ok, arguments}
   end
 
-  @impl true
-  def compensate(_result, _arguments, _context, _options), do: :ok
 end

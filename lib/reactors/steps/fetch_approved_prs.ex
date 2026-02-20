@@ -58,6 +58,4 @@ defmodule Deploy.Reactors.Steps.FetchApprovedPRs do
     }
   end
 
-  @impl true
-  def compensate(_result, _arguments, _context, _options), do: :ok
 end

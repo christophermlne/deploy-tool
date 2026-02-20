@@ -39,9 +39,4 @@ defmodule Deploy.Reactors.Steps.CloneRepoTest do
     end
   end
 
-  describe "compensate/4" do
-    test "returns ok" do
-      assert :ok = Deploy.Reactors.Steps.CloneRepo.compensate("/tmp/ws", %{}, %{}, [])
-    end
-  end
 end

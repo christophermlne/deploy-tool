@@ -23,6 +23,4 @@ defmodule Deploy.Reactors.Steps.RequestReview do
     end
   end
 
-  @impl true
-  def compensate(_result, _arguments, _context, _options), do: :ok
 end
