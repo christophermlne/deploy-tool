@@ -418,6 +418,9 @@ defmodule DeployWeb.CoreComponents do
               PRs
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Deploy PR
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -427,7 +430,7 @@ defmodule DeployWeb.CoreComponents do
               Duration
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Deploy PR
+              Initiated By
             </th>
             <th scope="col" class="relative px-6 py-3">
               <span class="sr-only">Actions</span>
@@ -459,6 +462,13 @@ defmodule DeployWeb.CoreComponents do
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         <%= for {pr_number, idx} <- Enum.with_index(@deployment.pr_numbers || []) do %><%= if idx > 0 do %>, <% end %><.pr_link number={pr_number} context={"row-prs-#{@deployment.id}"} /><% end %>
       </td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm">
+        <%= if @deployment.deploy_pr_number do %>
+          <.pr_link number={@deployment.deploy_pr_number} context={"row-deploy-#{@deployment.id}"} />
+        <% else %>
+          <span class="text-gray-400">-</span>
+        <% end %>
+      </td>
       <td class="px-6 py-4 whitespace-nowrap">
         <.deployment_status deployment={@deployment} />
       </td>
@@ -468,9 +478,9 @@ defmodule DeployWeb.CoreComponents do
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         <%= format_duration(@deployment) %>
       </td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm">
-        <%= if @deployment.deploy_pr_number do %>
-          <.pr_link number={@deployment.deploy_pr_number} context={"row-deploy-#{@deployment.id}"} />
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <%= if Ecto.assoc_loaded?(@deployment.created_by) and @deployment.created_by do %>
+          <%= @deployment.created_by.display_name || @deployment.created_by.username %>
         <% else %>
           <span class="text-gray-400">-</span>
         <% end %>

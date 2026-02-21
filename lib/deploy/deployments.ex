@@ -123,7 +123,7 @@ defmodule Deploy.Deployments do
   """
   @spec load_deployment_with_assocs(Deployment.t()) :: Deployment.t()
   def load_deployment_with_assocs(%Deployment{} = deployment) do
-    Repo.preload(deployment, [:steps, :merged_prs])
+    Repo.preload(deployment, [:steps, :merged_prs, :created_by])
   end
 
   # ============================================================================

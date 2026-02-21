@@ -166,6 +166,16 @@
               <%= Calendar.strftime(@deployment.inserted_at, "%Y-%m-%d %H:%M:%S") %>
             </dd>
           </div>
+          <div>
+            <dt class="text-xs text-gray-500 uppercase">Initiated By</dt>
+            <dd class="mt-1 text-sm text-gray-900">
+              <%= if Ecto.assoc_loaded?(@deployment.created_by) and @deployment.created_by do %>
+                <%= @deployment.created_by.display_name || @deployment.created_by.username %>
+              <% else %>
+                <span class="text-gray-400">-</span>
+              <% end %>
+            </dd>
+          </div>
           <%= if @deployment.started_at do %>
             <div>
               <dt class="text-xs text-gray-500 uppercase">Started</dt>

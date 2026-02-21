@@ -68,8 +68,8 @@ defmodule DeployWeb.DeploymentListLive do
   defp load_deployments(socket) do
     opts =
       case socket.assigns.status_filter do
-        nil -> [preload: [:steps]]
-        status -> [status: status, preload: [:steps]]
+        nil -> [preload: [:steps, :created_by]]
+        status -> [status: status, preload: [:steps, :created_by]]
       end
 
     deployments = Deployments.list_deployments(opts)

@@ -34,8 +34,8 @@ defmodule DeployWeb.DashboardLive do
   def handle_info(_event, socket), do: {:noreply, socket}
 
   defp load_deployments(socket) do
-    recent = Deployments.list_deployments(limit: 10, preload: [:steps])
-    active = Deployments.list_deployments(status: :in_progress, preload: [:steps])
+    recent = Deployments.list_deployments(limit: 10, preload: [:steps, :created_by])
+    active = Deployments.list_deployments(status: :in_progress, preload: [:steps, :created_by])
 
     assign(socket,
       page_title: "Dashboard",

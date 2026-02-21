@@ -35,6 +35,8 @@ defmodule Deploy.Deployments.Deployment do
     # Deploy PR number (populated on completion)
     field :deploy_pr_number, :integer
 
+    belongs_to :created_by, Deploy.Accounts.User
+
     has_many :steps, Deploy.Deployments.DeploymentStep
     has_many :merged_prs, Deploy.Deployments.MergedPr
 
@@ -42,7 +44,7 @@ defmodule Deploy.Deployments.Deployment do
   end
 
   @required_fields ~w(deploy_date)a
-  @optional_fields ~w(pr_numbers status current_phase current_step error_message started_at completed_at skip_reviews skip_ci skip_conflicts deploy_pr_number)a
+  @optional_fields ~w(pr_numbers status current_phase current_step error_message started_at completed_at skip_reviews skip_ci skip_conflicts deploy_pr_number created_by_id)a
 
   @doc """
   Creates a changeset for a deployment.

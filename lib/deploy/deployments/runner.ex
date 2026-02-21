@@ -65,6 +65,7 @@ defmodule Deploy.Deployments.Runner do
     skip_reviews = Keyword.get(opts, :skip_reviews, false)
     skip_ci = Keyword.get(opts, :skip_ci, false)
     skip_conflicts = Keyword.get(opts, :skip_conflicts, false)
+    created_by_id = Keyword.get(opts, :created_by_id)
 
     # Check for existing active deployment
     case Deployments.get_active_deployment(deploy_date) do
@@ -79,7 +80,8 @@ defmodule Deploy.Deployments.Runner do
           status: :pending,
           skip_reviews: skip_reviews,
           skip_ci: skip_ci,
-          skip_conflicts: skip_conflicts
+          skip_conflicts: skip_conflicts,
+          created_by_id: created_by_id
         }
 
         case Deployments.create_deployment(deployment_attrs) do

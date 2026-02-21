@@ -49,7 +49,7 @@ defmodule DeployWeb.NewDeploymentLive do
       true ->
         socket = assign(socket, submitting: true, error: nil)
 
-        opts = build_opts(pr_numbers, params)
+        opts = build_opts(pr_numbers, params) |> Keyword.put(:created_by_id, socket.assigns.current_user.id)
         Logger.info("Built opts: #{inspect(opts)}")
 
         case Runner.start_deployment(opts) do
