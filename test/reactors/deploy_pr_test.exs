@@ -47,6 +47,15 @@ defmodule Deploy.Reactors.DeployPRTest do
           |> Plug.Conn.put_status(201)
           |> Req.Test.json(%{"number" => 99, "html_url" => "https://github.com/o/r/pull/99"})
 
+        {"POST", ["graphql"]} ->
+          Req.Test.json(conn, %{
+            "data" => %{
+              "repository" => %{
+                "pr_1" => %{"closingIssuesReferences" => %{"nodes" => []}}
+              }
+            }
+          })
+
         {"PATCH", ["repos", "o", "r", "pulls", "99"]} ->
           Req.Test.json(conn, %{"number" => 99})
       end
@@ -79,6 +88,15 @@ defmodule Deploy.Reactors.DeployPRTest do
           |> Plug.Conn.put_status(201)
           |> Req.Test.json(%{"number" => 99, "html_url" => "https://github.com/o/r/pull/99"})
 
+        {"POST", ["graphql"]} ->
+          Req.Test.json(conn, %{
+            "data" => %{
+              "repository" => %{
+                "pr_1" => %{"closingIssuesReferences" => %{"nodes" => []}}
+              }
+            }
+          })
+
         {"PATCH", ["repos", "o", "r", "pulls", "99"]} ->
           Req.Test.json(conn, %{"number" => 99})
 
@@ -100,7 +118,7 @@ defmodule Deploy.Reactors.DeployPRTest do
     assert {:ok, %{number: 99}} = Reactor.run(Deploy.Reactors.DeployPR, inputs)
   end
 
-  test "PR description contains only PR numbers", %{workspace: workspace} do
+  test "PR description includes Issues and PRs sections when issues are linked", %{workspace: workspace} do
     stub_git_for_version_bump(workspace)
 
     client = stub_client(fn conn ->
@@ -110,11 +128,21 @@ defmodule Deploy.Reactors.DeployPRTest do
           |> Plug.Conn.put_status(201)
           |> Req.Test.json(%{"number" => 99, "html_url" => "https://github.com/o/r/pull/99"})
 
+        {"POST", ["graphql"]} ->
+          Req.Test.json(conn, %{
+            "data" => %{
+              "repository" => %{
+                "pr_2654" => %{"closingIssuesReferences" => %{"nodes" => [%{"number" => 12}]}},
+                "pr_2378" => %{"closingIssuesReferences" => %{"nodes" => [%{"number" => 14}, %{"number" => 12}]}},
+                "pr_2401" => %{"closingIssuesReferences" => %{"nodes" => []}}
+              }
+            }
+          })
+
         {"PATCH", ["repos", "o", "r", "pulls", "99"]} ->
           {:ok, body, _} = Plug.Conn.read_body(conn)
           decoded = Jason.decode!(body)
-          # Verify simplified format
-          assert decoded["body"] == "#2654\n#2378\n#2401"
+          assert decoded["body"] == "Issues\n#12\n#14\n\nPRs\n#2654\n#2378\n#2401"
           Req.Test.json(conn, %{"number" => 99})
       end
     end)
@@ -126,6 +154,50 @@ defmodule Deploy.Reactors.DeployPRTest do
         %{number: 2654, title: "Feature A", sha: "aaa"},
         %{number: 2378, title: "Feature B", sha: "bbb"},
         %{number: 2401, title: "Feature C", sha: "ccc"}
+      ],
+      client: client,
+      owner: "o",
+      repo: "r",
+      reviewers: []
+    }
+
+    assert {:ok, _} = Reactor.run(Deploy.Reactors.DeployPR, inputs)
+  end
+
+  test "PR description omits Issues section when no issues are linked", %{workspace: workspace} do
+    stub_git_for_version_bump(workspace)
+
+    client = stub_client(fn conn ->
+      case {conn.method, conn.path_info} do
+        {"POST", ["repos", "o", "r", "pulls"]} ->
+          conn
+          |> Plug.Conn.put_status(201)
+          |> Req.Test.json(%{"number" => 99, "html_url" => "https://github.com/o/r/pull/99"})
+
+        {"POST", ["graphql"]} ->
+          Req.Test.json(conn, %{
+            "data" => %{
+              "repository" => %{
+                "pr_46" => %{"closingIssuesReferences" => %{"nodes" => []}},
+                "pr_47" => %{"closingIssuesReferences" => %{"nodes" => []}}
+              }
+            }
+          })
+
+        {"PATCH", ["repos", "o", "r", "pulls", "99"]} ->
+          {:ok, body, _} = Plug.Conn.read_body(conn)
+          decoded = Jason.decode!(body)
+          assert decoded["body"] == "PRs\n#46\n#47"
+          Req.Test.json(conn, %{"number" => 99})
+      end
+    end)
+
+    inputs = %{
+      workspace: workspace,
+      deploy_branch: "deploy-20260201",
+      merged_prs: [
+        %{number: 46, title: "Feature A", sha: "aaa"},
+        %{number: 47, title: "Feature B", sha: "bbb"}
       ],
       client: client,
       owner: "o",

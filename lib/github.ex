@@ -467,6 +467,65 @@ defmodule Deploy.GitHub do
     end
   end
 
+  @doc """
+  Executes a GraphQL query against the GitHub API.
+  """
+  def graphql(client, query, variables \\ %{}) do
+    case Req.post(client,
+           url: "/graphql",
+           json: %{query: query, variables: variables}
+         ) do
+      {:ok, %{status: 200, body: %{"data" => _data, "errors" => errors}}} when is_list(errors) ->
+        {:error, "GraphQL errors: #{inspect(errors)}"}
+
+      {:ok, %{status: 200, body: %{"data" => data}}} ->
+        {:ok, data}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "GraphQL request failed (#{status}): #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Fetches the closing issue references for a list of PRs.
+
+  Uses a batched GraphQL query with aliases to fetch all PRs in a single call.
+  Returns a flat, deduplicated, sorted list of issue numbers.
+  """
+  def closing_issues_for_prs(_client, _owner, _repo, []), do: {:ok, []}
+
+  def closing_issues_for_prs(client, owner, repo, pr_numbers) do
+    pr_fragments =
+      pr_numbers
+      |> Enum.map(fn num ->
+        "pr_#{num}: pullRequest(number: #{num}) { closingIssuesReferences(first: 10) { nodes { number } } }"
+      end)
+      |> Enum.join("\n    ")
+
+    query = """
+    {
+      repository(owner: "#{owner}", name: "#{repo}") {
+        #{pr_fragments}
+      }
+    }
+    """
+
+    with {:ok, data} <- graphql(client, query) do
+      issues =
+        data["repository"]
+        |> Map.values()
+        |> Enum.flat_map(fn pr -> get_in(pr, ["closingIssuesReferences", "nodes"]) || [] end)
+        |> Enum.map(& &1["number"])
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      {:ok, issues}
+    end
+  end
+
   # Helper to conditionally add keys to a map
   defp maybe_add(map, _key, nil), do: map
   defp maybe_add(map, key, value), do: Map.put(map, key, value)
