@@ -526,6 +526,66 @@ defmodule Deploy.GitHub do
     end
   end
 
+  @doc """
+  Fetches PR details for popover display via a single GraphQL query.
+
+  Returns a map with: number, title, body (truncated), state, is_draft,
+  created_at, author, base_ref, head_ref, and reviews.
+  """
+  def get_pr_popover_info(client, owner, repo, pr_number) do
+    query = """
+    {
+      repository(owner: "#{owner}", name: "#{repo}") {
+        pullRequest(number: #{pr_number}) {
+          number
+          title
+          bodyText
+          state
+          isDraft
+          createdAt
+          author { login }
+          baseRefName
+          headRefName
+          latestReviews(first: 10) {
+            nodes {
+              author { login }
+              state
+            }
+          }
+        }
+      }
+    }
+    """
+
+    with {:ok, data} <- graphql(client, query) do
+      pr = data["repository"]["pullRequest"]
+
+      {:ok,
+       %{
+         number: pr["number"],
+         title: pr["title"],
+         body: truncate(pr["bodyText"] || "", 200),
+         state: pr["state"],
+         is_draft: pr["isDraft"],
+         created_at: pr["createdAt"],
+         author: get_in(pr, ["author", "login"]) || "ghost",
+         base_ref: pr["baseRefName"],
+         head_ref: pr["headRefName"],
+         reviews:
+           (get_in(pr, ["latestReviews", "nodes"]) || [])
+           |> Enum.map(fn review ->
+             %{
+               author: get_in(review, ["author", "login"]) || "ghost",
+               state: review["state"]
+             }
+           end)
+       }}
+    end
+  end
+
+  defp truncate(text, max_length) when byte_size(text) <= max_length, do: text
+  defp truncate(text, max_length), do: String.slice(text, 0, max_length) <> "..."
+
   # Helper to conditionally add keys to a map
   defp maybe_add(map, _key, nil), do: map
   defp maybe_add(map, key, value), do: Map.put(map, key, value)

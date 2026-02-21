@@ -17,6 +17,8 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescription do
     end
   end
 
+  defp build_description([], _issues), do: ""
+
   defp build_description(merged_prs, issues) do
     pr_section = "PRs\n" <> Enum.map_join(merged_prs, "\n", &"##{&1.number}")
 

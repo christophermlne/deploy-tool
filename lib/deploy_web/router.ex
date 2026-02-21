@@ -27,7 +27,7 @@ defmodule DeployWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :authenticated,
-      on_mount: {DeployWeb.AuthPlug, :ensure_authenticated} do
+      on_mount: [{DeployWeb.AuthPlug, :ensure_authenticated}, {DeployWeb.PRPopoverHook, :default}] do
       live "/", DashboardLive, :index
       live "/deployments", DeploymentListLive, :index
       live "/deployments/new", NewDeploymentLive, :new

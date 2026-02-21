@@ -69,6 +69,7 @@ defmodule DeployWeb do
     quote do
       import Phoenix.HTML
       import DeployWeb.CoreComponents
+      import DeployWeb.Components.PRLink
 
       alias Phoenix.LiveView.JS
 

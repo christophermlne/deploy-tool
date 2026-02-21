@@ -9,6 +9,8 @@ defmodule DeployWeb.CoreComponents do
     router: DeployWeb.Router,
     statics: DeployWeb.static_paths()
 
+  import DeployWeb.Components.PRLink
+
   alias Phoenix.LiveView.JS
 
   @doc """
@@ -455,7 +457,7 @@ defmodule DeployWeb.CoreComponents do
         <%= @deployment.deploy_date %>
       </td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        <%= for {pr_number, idx} <- Enum.with_index(@deployment.pr_numbers || []) do %><%= if idx > 0 do %>, <% end %><a href={pr_url(pr_number)} target="_blank" class="text-indigo-600 hover:underline">#<%= pr_number %></a><% end %>
+        <%= for {pr_number, idx} <- Enum.with_index(@deployment.pr_numbers || []) do %><%= if idx > 0 do %>, <% end %><.pr_link number={pr_number} context={"row-prs-#{@deployment.id}"} /><% end %>
       </td>
       <td class="px-6 py-4 whitespace-nowrap">
         <.deployment_status deployment={@deployment} />
@@ -468,9 +470,7 @@ defmodule DeployWeb.CoreComponents do
       </td>
       <td class="px-6 py-4 whitespace-nowrap text-sm">
         <%= if @deployment.deploy_pr_number do %>
-          <a href={pr_url(@deployment.deploy_pr_number)} target="_blank" class="text-indigo-600 hover:underline">
-            #<%= @deployment.deploy_pr_number %>
-          </a>
+          <.pr_link number={@deployment.deploy_pr_number} context={"row-deploy-#{@deployment.id}"} />
         <% else %>
           <span class="text-gray-400">-</span>
         <% end %>
