@@ -9,7 +9,7 @@ defmodule Deploy.Reactors.Steps.CreateDeployPRTest do
     client = stub_client(fn conn ->
       {:ok, body, _} = Plug.Conn.read_body(conn)
       decoded = Jason.decode!(body)
-      assert decoded["title"] == "Deploy 2026-02-01"
+      assert decoded["title"] == "Deploy: 2026-02-01"
       assert decoded["head"] == "deploy-20260201"
       assert decoded["base"] == "staging"
 
@@ -34,17 +34,7 @@ defmodule Deploy.Reactors.Steps.CreateDeployPRTest do
     assert {:error, _} = CreateDeployPR.run(arguments, %{}, [])
   end
 
-  test "compensation closes the PR" do
-    client = stub_client(fn conn ->
-      {:ok, body, _} = Plug.Conn.read_body(conn)
-      decoded = Jason.decode!(body)
-      assert decoded["state"] == "closed"
-      Req.Test.json(conn, %{"number" => 99, "state" => "closed"})
-    end)
-
-    result = %{number: 99, url: "https://github.com/o/r/pull/99"}
-    arguments = %{client: client, owner: "o", repo: "r"}
-
-    assert :ok = CreateDeployPR.compensate(result, arguments, %{}, [])
+  test "has no compensation (deploy PR is never closed)" do
+    refute function_exported?(CreateDeployPR, :compensate, 4)
   end
 end

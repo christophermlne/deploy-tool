@@ -6,8 +6,9 @@ defmodule Deploy.Reactors.DeployPR do
   1. Bumps the version in all version files
   2. Commits and pushes the version bump
   3. Creates a PR from the deploy branch to staging
-  4. Populates its description with merged PR references
-  5. Optionally requests review
+  4. Fetches closing issue references (with graceful fallback)
+  5. Populates its description with merged PR and issue references
+  6. Optionally requests review
   """
 
   use Reactor
@@ -55,13 +56,23 @@ defmodule Deploy.Reactors.DeployPR do
     max_retries 0
   end
 
+  step :fetch_closing_issues, Deploy.Reactors.Steps.FetchClosingIssues do
+    argument :client, input(:client)
+    argument :owner, input(:owner)
+    argument :repo, input(:repo)
+    argument :merged_prs, input(:merged_prs)
+
+    wait_for :create_deploy_pr
+    max_retries 0
+  end
+
   step :update_pr_description, Deploy.Reactors.Steps.UpdatePRDescription do
     argument :client, input(:client)
     argument :owner, input(:owner)
     argument :repo, input(:repo)
     argument :pr_number, result(:create_deploy_pr, [:number])
     argument :merged_prs, input(:merged_prs)
-    argument :deploy_branch, input(:deploy_branch)
+    argument :issues, result(:fetch_closing_issues)
 
     max_retries 0
   end

@@ -29,24 +29,6 @@ defmodule Deploy.Reactors.Steps.CreateDeployPR do
     end
   end
 
-  @impl true
-  def compensate(%{number: pr_number}, arguments, _context, _options) do
-    client = arguments.client
-    owner = arguments.owner
-    repo = arguments.repo
-
-    Logger.info("Compensating: closing deploy PR ##{pr_number}")
-
-    case Deploy.GitHub.update_pr(client, owner, repo, pr_number, %{state: "closed"}) do
-      {:ok, _} ->
-        :ok
-
-      {:error, reason} ->
-        Logger.warning("Failed to close deploy PR ##{pr_number}: #{inspect(reason)}")
-        :ok
-    end
-  end
-
   # deploy-20260201 → "Deploy 2026-02-01"
   defp format_title("deploy-" <> date) do
     <<y::binary-size(4), m::binary-size(2), d::binary-size(2)>> = date

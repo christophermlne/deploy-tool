@@ -1,20 +1,14 @@
 defmodule Deploy.Reactors.Steps.UpdatePRDescription do
   @moduledoc """
-  Populates the deploy PR body with information about included PRs.
+  Populates the deploy PR body with information about included PRs and issues.
   """
 
   use Reactor.Step
 
-  require Logger
-
   @impl true
-  def run(%{client: client, owner: owner, repo: repo, pr_number: pr_number, merged_prs: merged_prs, deploy_branch: _deploy_branch}, _context, _options) do
-    pr_numbers = Enum.map(merged_prs, & &1.number)
-
-    with {:ok, issues} <- Deploy.GitHub.closing_issues_for_prs(client, owner, repo, pr_numbers) do
-      body = build_description(merged_prs, issues)
-      Deploy.GitHub.update_pr(client, owner, repo, pr_number, %{body: body})
-    end
+  def run(%{client: client, owner: owner, repo: repo, pr_number: pr_number, merged_prs: merged_prs, issues: issues}, _context, _options) do
+    body = build_description(merged_prs, issues)
+    Deploy.GitHub.update_pr(client, owner, repo, pr_number, %{body: body})
   end
 
   defp build_description([], _issues), do: ""

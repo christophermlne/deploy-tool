@@ -8,19 +8,16 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescriptionTest do
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       decoded = Jason.decode!(body)
 
-      case {conn.method, conn.request_path} do
-        {"POST", "/graphql"} ->
-          # Return empty closing issues for all PRs
-          Req.Test.json(conn, %{"data" => %{"repository" => %{}}})
+      # Only expects the PATCH to update the PR description
+      assert conn.method == "PATCH"
+      assert conn.request_path == "/repos/o/r/pulls/99"
+      assert decoded["body"] == expected_body
 
-        {"PATCH", "/repos/o/r/pulls/99"} ->
-          assert decoded["body"] == expected_body
-          Req.Test.json(conn, %{"number" => 99})
-      end
+      Req.Test.json(conn, %{"number" => 99})
     end)
   end
 
-  test "builds description with PR numbers only" do
+  test "builds description with PR numbers only when no issues" do
     client = stub_client("PRs\n#1\n#2")
 
     arguments = %{
@@ -28,11 +25,29 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescriptionTest do
       owner: "o",
       repo: "r",
       pr_number: 99,
-      deploy_branch: "deploy-20260201",
       merged_prs: [
         %{number: 1, title: "Feature A", sha: "aaa"},
         %{number: 2, title: "Feature B", sha: "bbb"}
-      ]
+      ],
+      issues: []
+    }
+
+    assert {:ok, _} = UpdatePRDescription.run(arguments, %{}, [])
+  end
+
+  test "builds description with issues and PRs" do
+    client = stub_client("Issues\n#10\n#20\n\nPRs\n#1\n#2")
+
+    arguments = %{
+      client: client,
+      owner: "o",
+      repo: "r",
+      pr_number: 99,
+      merged_prs: [
+        %{number: 1, title: "Feature A", sha: "aaa"},
+        %{number: 2, title: "Feature B", sha: "bbb"}
+      ],
+      issues: [10, 20]
     }
 
     assert {:ok, _} = UpdatePRDescription.run(arguments, %{}, [])
@@ -46,8 +61,8 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescriptionTest do
       owner: "o",
       repo: "r",
       pr_number: 99,
-      deploy_branch: "deploy-20260201",
-      merged_prs: []
+      merged_prs: [],
+      issues: []
     }
 
     assert {:ok, _} = UpdatePRDescription.run(arguments, %{}, [])
@@ -61,8 +76,8 @@ defmodule Deploy.Reactors.Steps.UpdatePRDescriptionTest do
       owner: "o",
       repo: "r",
       pr_number: 99,
-      deploy_branch: "deploy-20260201",
-      merged_prs: [%{number: 42, title: "Solo PR", sha: "xyz"}]
+      merged_prs: [%{number: 42, title: "Solo PR", sha: "xyz"}],
+      issues: []
     }
 
     assert {:ok, _} = UpdatePRDescription.run(arguments, %{}, [])
